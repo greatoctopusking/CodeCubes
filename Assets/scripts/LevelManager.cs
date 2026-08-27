@@ -80,6 +80,7 @@ public class LevelManager : MonoBehaviour
         GenerateGrid(size);
         SpawnStars(data, size);
         PlaceRobot(data, size);
+        CodeBlockBoard.Instance?.PlaceStartInWorkspace();
         levelActive = true;
         facingIndicator?.Show();
         LevelBlockHintDisplay.Instance?.Show(data);

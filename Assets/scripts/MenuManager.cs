@@ -84,6 +84,7 @@ public class MenuManager : MonoBehaviour
         HideAll();
         if (titlePanel != null) titlePanel.SetActive(true);
         if (titleText != null) titleText.text = "Coding Blocks";
+        AudioManager.Instance?.PlayBootAndAmbience();
     }
 
     public void ShowLevelSelect()
@@ -143,6 +144,7 @@ public class MenuManager : MonoBehaviour
         if (levelCompletePanel != null) levelCompletePanel.SetActive(true);
         if (completeLevelNameText != null)
             completeLevelNameText.text = $"Level {levelManager.currentLevelData.levelNumber} Complete!";
+        AudioManager.Instance?.Play(SoundId.LevelComplete);
     }
 
     public void ShowLevelFailed()
@@ -151,6 +153,7 @@ public class MenuManager : MonoBehaviour
         if (levelFailedPanel != null) levelFailedPanel.SetActive(true);
         if (failedLevelNameText != null)
             failedLevelNameText.text = "Fail";
+        AudioManager.Instance?.Play(SoundId.LevelFail);
         if (failRetryButton != null)
         {
             var retryLabel = failRetryButton.GetComponentInChildren<TMP_Text>();
@@ -184,17 +187,20 @@ public class MenuManager : MonoBehaviour
 
     private void OnStartClicked()
     {
+        AudioManager.Instance?.Play(SoundId.UiClick);
         ShowLevelSelect();
     }
 
     private void OnLeaveClicked()
     {
+        AudioManager.Instance?.Play(SoundId.UiClick);
         levelManager.StopLevel();
         ShowLevelSelect();
     }
 
     private void OnNextClicked()
     {
+        AudioManager.Instance?.Play(SoundId.UiClick);
         pendingLevelIndex = levelManager.currentLevelIndex + 1;
         if (pendingLevelIndex >= levelManager.levels.Count)
         {
@@ -207,12 +213,14 @@ public class MenuManager : MonoBehaviour
 
     private void OnRetryClicked()
     {
+        AudioManager.Instance?.Play(SoundId.UiClick);
         levelManager.ReloadLevel();
         ShowInLevel();
     }
 
     private void OnLevelSelected(int index)
     {
+        AudioManager.Instance?.Play(SoundId.UiClick);
         pendingLevelIndex = index;
         levelManager.LoadLevelByIndex(index);
         ShowInLevel();

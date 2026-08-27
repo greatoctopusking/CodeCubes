@@ -25,6 +25,9 @@ public class MoveCode : Code
         isMoving = true;
         movedDistance = 0f;
 
+        if (CodeManager.Robot != null)
+            AudioManager.Instance?.Play(SoundId.RobotMove, CodeManager.Robot.transform.position);
+
         if (CodeManager.RobotAnimator != null)
         {
             CodeManager.RobotAnimator.SetBool("Walk_Anim", true);

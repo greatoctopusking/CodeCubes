@@ -52,11 +52,16 @@ public class CodeManager : MonoBehaviour
         if (RobotAnimator != null)
         {
             RobotAnimator.SetBool("Open_Anim", true);
+            if (Robot != null)
+                AudioManager.Instance?.Play(SoundId.RobotBoot, Robot.transform.position);
+            else
+                AudioManager.Instance?.Play(SoundId.RobotBoot);
             yield return new WaitForSeconds(4.8f);
         }
         else
         {
             Debug.Log("[PlayCoroutine] RobotAnimator is null!");
+            AudioManager.Instance?.Play(SoundId.RobotBoot);
         }
 
         Code cur = FindObjectOfType<Start>();
@@ -264,6 +269,7 @@ public class CodeManager : MonoBehaviour
         {
             var msg = string.Join("\n", errors.ConvertAll(e => e.message));
             MenuManager.Instance?.SetStatus(msg);
+            AudioManager.Instance?.Play(SoundId.ValidationFail);
             Debug.LogWarning($"[CM] Validation failed:\n{msg}");
             return;
         }
@@ -277,6 +283,7 @@ public class CodeManager : MonoBehaviour
 
         loopStack.Clear();
         ResetAllBlocks();
+        AudioManager.Instance?.Play(SoundId.ProgramStart);
         playRoutine = StartCoroutine(PlayCoroutine());
     }
 

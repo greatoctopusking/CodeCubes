@@ -49,18 +49,25 @@ public class CodeBlockCatalog : ScriptableObject
         return entries[index];
     }
 
+    public GameObject GetPrefab(CodeBlockEntry entry)
+    {
+        return entry == null ? null : BlockIdentity.AsGameObject(entry.prefab);
+    }
+
     public bool TryGetEntryForPrefab(GameObject prefab, out CodeBlockEntry entry)
     {
         entry = null;
+        prefab = BlockIdentity.AsGameObject(prefab);
         if (prefab == null || entries == null)
             return false;
 
         foreach (var candidate in entries)
         {
-            if (candidate == null || candidate.prefab == null)
+            var candidatePrefab = GetPrefab(candidate);
+            if (candidatePrefab == null)
                 continue;
 
-            if (candidate.prefab == prefab || BlockIdentity.Matches(prefab, candidate.prefab))
+            if (candidatePrefab == prefab || BlockIdentity.Matches(prefab, candidatePrefab))
             {
                 entry = candidate;
                 return true;
@@ -82,10 +89,17 @@ public class CodeBlockCatalog : ScriptableObject
 
         foreach (var candidate in entries)
         {
-            if (candidate == null || candidate.prefab == null)
+            if (candidate == null)
                 continue;
 
-            if (BlockIdentity.Matches(blockObject, candidate.prefab))
+            if (BlockIdentity.NamesMatch(blockObject.name, candidate.displayName))
+            {
+                entry = candidate;
+                return true;
+            }
+
+            var candidatePrefab = GetPrefab(candidate);
+            if (candidatePrefab != null && BlockIdentity.Matches(blockObject, candidatePrefab))
             {
                 entry = candidate;
                 return true;

@@ -25,6 +25,8 @@ public class LevelManager : MonoBehaviour
     public int currentLevelIndex { get; private set; }
     public LevelData currentLevelData => levels[currentLevelIndex];
     public bool IsLevelActive => levelActive;
+    public bool HasStartedThisAttempt { get; private set; }
+    public bool IsLevelResolved { get; private set; }
 
     private GameObject gridParent;
     private MenuManager menu;
@@ -73,6 +75,8 @@ public class LevelManager : MonoBehaviour
 
         currentLevelIndex = index;
         nextStarIndex = 0;
+        HasStartedThisAttempt = false;
+        IsLevelResolved = false;
 
         var data = levels[index];
         var size = gridSize.x > 0 && gridSize.y > 0 ? gridSize : data.gridSize;
@@ -80,9 +84,11 @@ public class LevelManager : MonoBehaviour
         GenerateGrid(size);
         SpawnStars(data, size);
         PlaceRobot(data, size);
+        CodeBlockBoard.Instance?.PlaceStartInWorkspace();
         levelActive = true;
         facingIndicator?.Show();
         LevelBlockHintDisplay.Instance?.Show(data);
+        AudioManager.Instance?.Play(SoundId.LevelEnter);
     }
 
     public void ReloadLevel()
@@ -93,6 +99,8 @@ public class LevelManager : MonoBehaviour
     public void StopLevel()
     {
         levelActive = false;
+        HasStartedThisAttempt = false;
+        IsLevelResolved = false;
         facingIndicator?.Hide();
         LevelBlockHintDisplay.Instance?.Hide();
         if (codeManager != null && codeManager.IsExecuting)
@@ -100,6 +108,23 @@ public class LevelManager : MonoBehaviour
         CodeBlockBoard.Instance?.ClearWorkspace();
         ClearLevel();
         GeneratePlayground();
+    }
+
+    public void NotifyRunStarted()
+    {
+        if (!levelActive) return;
+        HasStartedThisAttempt = true;
+    }
+
+    public void OnRunFinished()
+    {
+        if (!levelActive || IsLevelResolved) return;
+
+        IsLevelResolved = true;
+        if (AllStarsCollected())
+            menu?.ShowLevelComplete();
+        else
+            menu?.ShowLevelFailed();
     }
 
     public bool IsWithinGrid(Vector3 worldPos)
@@ -119,27 +144,21 @@ public class LevelManager : MonoBehaviour
 
     public void CollectStar(Star star)
     {
-        if (!levelActive) return;
+        if (!levelActive || IsLevelResolved || star == null || star.collected) return;
 
-        if (star.orderIndex != nextStarIndex)
-        {
-            menu?.ShowLevelFailed();
-            return;
-        }
-
+        AudioManager.Instance?.PlayStarCollect(star.orderIndex, star.transform.position);
         star.Collect();
         nextStarIndex++;
-
-        if (nextStarIndex >= CountStarsInLevel())
-        {
-            menu?.ShowLevelComplete();
-        }
     }
 
-    private int CountStarsInLevel()
+    private bool AllStarsCollected()
     {
-        if (currentLevelIndex >= levels.Count) return 0;
-        return levels[currentLevelIndex].starPositions.Length;
+        foreach (var star in FindObjectsOfType<Star>(true))
+        {
+            if (star != null && !star.collected)
+                return false;
+        }
+        return true;
     }
 
     private void ClearLevel()

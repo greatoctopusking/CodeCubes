@@ -1,3 +1,4 @@
+using System;
 using UnityEngine;
 
 public static class BlockIdentity
@@ -16,11 +17,35 @@ public static class BlockIdentity
         return normalized;
     }
 
+    public static bool NamesMatch(string left, string right)
+    {
+        return string.Equals(NormalizeName(left), NormalizeName(right), StringComparison.OrdinalIgnoreCase);
+    }
+
     public static bool Matches(GameObject instance, GameObject prefab)
     {
         if (instance == null || prefab == null)
             return false;
 
-        return NormalizeName(instance.name) == prefab.name;
+        if (NamesMatch(instance.name, prefab.name))
+            return true;
+
+        var instanceCode = instance.GetComponent<Code>();
+        var prefabCode = prefab.GetComponent<Code>();
+        return instanceCode != null && prefabCode != null && instanceCode.GetType() == prefabCode.GetType();
+    }
+
+    public static GameObject AsGameObject(UnityEngine.Object asset)
+    {
+        if (asset == null)
+            return null;
+
+        if (asset is GameObject gameObject)
+            return gameObject;
+
+        if (asset is Component component)
+            return component.gameObject;
+
+        return null;
     }
 }

@@ -36,7 +36,7 @@ public class TrashCan : MonoBehaviour
         if (transform.Find("TrashVisual") != null || transform.Find("Body") != null)
             return;
 
-        if (respectExistingVisual && HasExistingVisual())
+        if (respectExistingVisual && GetComponentInChildren<Renderer>(true) != null)
         {
             StripColliders(gameObject);
             return;
@@ -54,17 +54,6 @@ public class TrashCan : MonoBehaviour
         }
 
         CreateProceduralVisual();
-    }
-
-    private bool HasExistingVisual()
-    {
-        foreach (Transform child in transform)
-        {
-            if (child.GetComponentInChildren<Renderer>() != null)
-                return true;
-        }
-
-        return false;
     }
 
     private void CreateProceduralVisual()
@@ -147,10 +136,13 @@ public class TrashCan : MonoBehaviour
         ReleaseGrab(code.gameObject);
         ConnectionManager.Instance?.CleanupBlock(code);
 
-        if (board.ReturnBlock(code))
+        if (code is Start)
+        {
+            board.PlaceStartInWorkspace();
             return;
+        }
 
-        Debug.LogWarning($"[TrashCan] No empty shelf slot available for '{code.name}'.");
+        Destroy(code.gameObject);
     }
 
     private static void ReleaseGrab(GameObject block)

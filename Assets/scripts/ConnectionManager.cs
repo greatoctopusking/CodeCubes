@@ -303,11 +303,13 @@ public class ConnectionManager : MonoBehaviour
             {
                 Debug.Log($"[CM] Disconnect Judger '{whileBlock.name}' <- '{boolBlock.name}'");
                 DisconnectJudger(whileBlock);
+                AudioManager.Instance?.Play(SoundId.BlockDisconnect, whileBlock.transform.position);
             }
             else if (!IsAnyonesJudger(boolBlock))
             {
                 Debug.Log($"[CM] Connect Judger '{whileBlock.name}' <- '{boolBlock.name}'");
                 ConnectJudger(whileBlock, boolBlock);
+                AudioManager.Instance?.Play(SoundId.BlockConnect, whileBlock.transform.position);
             }
             else
             {
@@ -321,11 +323,13 @@ public class ConnectionManager : MonoBehaviour
             {
                 Debug.Log($"[CM] Disconnect Judger '{ifBlock.name}' <- '{boolBlock2.name}'");
                 DisconnectJudger(ifBlock);
+                AudioManager.Instance?.Play(SoundId.BlockDisconnect, ifBlock.transform.position);
             }
             else if (!IsAnyonesJudger(boolBlock2))
             {
                 Debug.Log($"[CM] Connect Judger '{ifBlock.name}' <- '{boolBlock2.name}'");
                 ConnectJudger(ifBlock, boolBlock2);
+                AudioManager.Instance?.Play(SoundId.BlockConnect, ifBlock.transform.position);
             }
             else
             {
@@ -339,6 +343,7 @@ public class ConnectionManager : MonoBehaviour
             {
                 Debug.Log($"[CM] Disconnect Judger '{hitWhile.name}' <- '{selectedBlock.name}'");
                 DisconnectJudger(hitWhile);
+                AudioManager.Instance?.Play(SoundId.BlockDisconnect, hitWhile.transform.position);
                 DeselectBlock();
             }
         }
@@ -348,6 +353,7 @@ public class ConnectionManager : MonoBehaviour
             {
                 Debug.Log($"[CM] Disconnect Judger '{hitIf.name}' <- '{selectedBlock.name}'");
                 DisconnectJudger(hitIf);
+                AudioManager.Instance?.Play(SoundId.BlockDisconnect, hitIf.transform.position);
                 DeselectBlock();
             }
         }
@@ -359,23 +365,31 @@ public class ConnectionManager : MonoBehaviour
                 {
                     Debug.Log($"[CM] Connect '{selectedBlock.name}' -> '{hitBlock.name}'");
                     Connect(selectedBlock, hitBlock);
+                    AudioManager.Instance?.Play(SoundId.BlockConnect, selectedBlock.transform.position);
                 }
                 else
                 {
                     Debug.Log($"[CM] Rejected '{selectedBlock.name}' -> '{hitBlock.name}'");
+                    AudioManager.Instance?.Play(SoundId.ValidationFail);
                 }
                 DeselectBlock();
             }
             else if (hitBlock == selectedBlock)
             {
                 Debug.Log($"[CM] Disconnect self '{selectedBlock.name}'");
+                bool hadLink = selectedBlock.next != null;
                 Disconnect(selectedBlock);
+                if (hadLink)
+                    AudioManager.Instance?.Play(SoundId.BlockDisconnect, selectedBlock.transform.position);
                 DeselectBlock();
             }
             else
             {
                 Debug.Log($"[CM] Disconnect '{selectedBlock.name}' (no target)");
+                bool hadLink = selectedBlock.next != null;
                 Disconnect(selectedBlock);
+                if (hadLink)
+                    AudioManager.Instance?.Play(SoundId.BlockDisconnect, selectedBlock.transform.position);
                 DeselectBlock();
             }
         }
@@ -646,6 +660,36 @@ public class ConnectionManager : MonoBehaviour
 
         arrowhead.transform.position = midPoint;
         arrowhead.transform.rotation = Quaternion.LookRotation(direction);
+    }
+
+    public void ClearAllConnections()
+    {
+        DeselectBlock();
+
+        for (int i = connections.Count - 1; i >= 0; i--)
+        {
+            if (connections[i].line != null)
+                Destroy(connections[i].line.gameObject);
+            if (connections[i].arrowhead != null)
+                Destroy(connections[i].arrowhead);
+        }
+
+        connections.Clear();
+
+        if (connectionsContainer != null)
+        {
+            for (int i = connectionsContainer.transform.childCount - 1; i >= 0; i--)
+                Destroy(connectionsContainer.transform.GetChild(i).gameObject);
+        }
+
+        foreach (var code in FindObjectsOfType<Code>())
+        {
+            code.next = null;
+            if (code is If ifBlock)
+                ifBlock.Judger = null;
+            else if (code is While whileBlock)
+                whileBlock.Judger = null;
+        }
     }
 
     public void CleanupBlock(Code block)

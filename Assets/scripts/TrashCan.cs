@@ -1,4 +1,6 @@
+using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.XR.Interaction.Toolkit;
 using UnityEngine.XR.Interaction.Toolkit.Interactables;
 
 [RequireComponent(typeof(Collider))]
@@ -17,12 +19,28 @@ public class TrashCan : MonoBehaviour
     private CodeManager codeManager;
     private CodeBlockBoard board;
 
+    private readonly HashSet<Code> blocksInside = new HashSet<Code>();
+    private readonly Dictionary<Code, XRGrabInteractable> grabSubscriptions =
+        new Dictionary<Code, XRGrabInteractable>();
+
     private void Awake()
     {
         codeManager = FindObjectOfType<CodeManager>();
-        board = FindObjectOfType<CodeBlockBoard>();
+        board = CodeBlockBoard.Instance ?? FindObjectOfType<CodeBlockBoard>();
         EnsureTriggerCollider();
         EnsureVisual();
+    }
+
+    private void OnDestroy()
+    {
+        foreach (var pair in grabSubscriptions)
+        {
+            if (pair.Value != null)
+                pair.Value.selectExited.RemoveListener(OnBlockSelectExited);
+        }
+
+        grabSubscriptions.Clear();
+        blocksInside.Clear();
     }
 
     private void EnsureTriggerCollider()
@@ -36,7 +54,7 @@ public class TrashCan : MonoBehaviour
         if (transform.Find("TrashVisual") != null || transform.Find("Body") != null)
             return;
 
-        if (respectExistingVisual && GetComponentInChildren<Renderer>(true) != null)
+        if (respectExistingVisual && HasExistingVisual())
         {
             StripColliders(gameObject);
             return;
@@ -54,6 +72,20 @@ public class TrashCan : MonoBehaviour
         }
 
         CreateProceduralVisual();
+    }
+
+    private bool HasExistingVisual()
+    {
+        if (GetComponent<Renderer>() != null)
+            return true;
+
+        foreach (Transform child in transform)
+        {
+            if (child.GetComponentInChildren<Renderer>() != null)
+                return true;
+        }
+
+        return false;
     }
 
     private void CreateProceduralVisual()
@@ -109,19 +141,43 @@ public class TrashCan : MonoBehaviour
 
     private void OnTriggerEnter(Collider other)
     {
-        TryReturnBlock(other);
-    }
-
-    private void TryReturnBlock(Collider other)
-    {
-        if (codeManager != null && codeManager.IsExecuting)
+        var code = ResolveCode(other);
+        if (!IsReturnCandidate(code))
             return;
 
-        var code = other.GetComponentInParent<Code>();
+        blocksInside.Add(code);
+        SubscribeGrab(code);
+
+        // Already released (thrown into can) → return immediately.
+        if (!IsGrabbed(code))
+            TryReturnBlock(code);
+    }
+
+    private void OnTriggerExit(Collider other)
+    {
+        var code = ResolveCode(other);
         if (code == null)
             return;
 
-        if (code.GetComponent<CodeBlockShelfInstance>() != null)
+        blocksInside.Remove(code);
+        UnsubscribeGrab(code);
+    }
+
+    private void OnBlockSelectExited(SelectExitEventArgs args)
+    {
+        var code = args.interactableObject.transform.GetComponentInParent<Code>();
+        if (code == null || !blocksInside.Contains(code))
+            return;
+
+        TryReturnBlock(code);
+    }
+
+    private void TryReturnBlock(Code code)
+    {
+        if (!IsReturnCandidate(code))
+            return;
+
+        if (IsGrabbed(code))
             return;
 
         if (board == null)
@@ -133,26 +189,66 @@ public class TrashCan : MonoBehaviour
             return;
         }
 
-        ReleaseGrab(code.gameObject);
+        blocksInside.Remove(code);
+        UnsubscribeGrab(code);
+
         ConnectionManager.Instance?.CleanupBlock(code);
 
-        if (code is Start)
-        {
-            board.PlaceStartInWorkspace();
+        if (board.ReturnBlock(code))
             return;
-        }
 
-        Destroy(code.gameObject);
+        Debug.LogWarning($"[TrashCan] No empty shelf slot available for '{code.name}'. Block was not destroyed.");
     }
 
-    private static void ReleaseGrab(GameObject block)
+    private bool IsReturnCandidate(Code code)
     {
-        var grab = block.GetComponent<XRGrabInteractable>();
-        if (grab == null || !grab.isSelected || grab.interactionManager == null)
+        if (code == null)
+            return false;
+
+        if (codeManager != null && codeManager.IsExecuting)
+            return false;
+
+        if (code.GetComponent<CodeBlockShelfInstance>() != null)
+            return false;
+
+        return true;
+    }
+
+    private static Code ResolveCode(Collider other)
+    {
+        return other != null ? other.GetComponentInParent<Code>() : null;
+    }
+
+    private static bool IsGrabbed(Code code)
+    {
+        if (code == null)
+            return false;
+
+        var grab = code.GetComponent<XRGrabInteractable>();
+        return grab != null && grab.isSelected;
+    }
+
+    private void SubscribeGrab(Code code)
+    {
+        if (code == null || grabSubscriptions.ContainsKey(code))
             return;
 
-        var interactor = grab.firstInteractorSelecting;
-        if (interactor != null)
-            grab.interactionManager.SelectExit(interactor, grab);
+        var grab = code.GetComponent<XRGrabInteractable>();
+        if (grab == null)
+            return;
+
+        grab.selectExited.AddListener(OnBlockSelectExited);
+        grabSubscriptions[code] = grab;
+    }
+
+    private void UnsubscribeGrab(Code code)
+    {
+        if (code == null || !grabSubscriptions.TryGetValue(code, out var grab))
+            return;
+
+        if (grab != null)
+            grab.selectExited.RemoveListener(OnBlockSelectExited);
+
+        grabSubscriptions.Remove(code);
     }
 }

@@ -49,25 +49,18 @@ public class CodeBlockCatalog : ScriptableObject
         return entries[index];
     }
 
-    public GameObject GetPrefab(CodeBlockEntry entry)
-    {
-        return entry == null ? null : BlockIdentity.AsGameObject(entry.prefab);
-    }
-
     public bool TryGetEntryForPrefab(GameObject prefab, out CodeBlockEntry entry)
     {
         entry = null;
-        prefab = BlockIdentity.AsGameObject(prefab);
         if (prefab == null || entries == null)
             return false;
 
         foreach (var candidate in entries)
         {
-            var candidatePrefab = GetPrefab(candidate);
-            if (candidatePrefab == null)
+            if (candidate == null || candidate.prefab == null)
                 continue;
 
-            if (candidatePrefab == prefab || BlockIdentity.Matches(prefab, candidatePrefab))
+            if (candidate.prefab == prefab || BlockIdentity.Matches(prefab, candidate.prefab))
             {
                 entry = candidate;
                 return true;
@@ -83,23 +76,56 @@ public class CodeBlockCatalog : ScriptableObject
         if (blockObject == null || entries == null)
             return false;
 
+        var code = blockObject.GetComponent<Code>();
+        BlockIdentity.TryGetPrefabNameForCode(code, out string expectedName);
+
+        // Prefer pool binding, but fall through if stale or unresolved.
         var poolItem = blockObject.GetComponent<CodeBlockPoolItem>();
         if (poolItem != null && poolItem.sourcePrefab != null)
-            return TryGetEntryForPrefab(poolItem.sourcePrefab, out entry);
+        {
+            if (TryGetEntryForPrefab(poolItem.sourcePrefab, out entry))
+            {
+                if (string.IsNullOrEmpty(expectedName) ||
+                    BlockIdentity.NamesMatch(entry.displayName, expectedName) ||
+                    (entry.prefab != null && BlockIdentity.NamesMatch(entry.prefab.name, expectedName)))
+                {
+                    return true;
+                }
+
+                // Stale pool binding (e.g. previous wrong match) — ignore and rematch.
+                entry = null;
+            }
+        }
+
+        // Robust path for Blender scene instances: Code subclass → catalog displayName.
+        if (!string.IsNullOrEmpty(expectedName))
+        {
+            foreach (var candidate in entries)
+            {
+                if (candidate == null)
+                    continue;
+
+                if (!string.IsNullOrEmpty(candidate.displayName) &&
+                    BlockIdentity.NamesMatch(candidate.displayName, expectedName))
+                {
+                    entry = candidate;
+                    return true;
+                }
+
+                if (candidate.prefab != null && BlockIdentity.NamesMatch(candidate.prefab.name, expectedName))
+                {
+                    entry = candidate;
+                    return true;
+                }
+            }
+        }
 
         foreach (var candidate in entries)
         {
-            if (candidate == null)
+            if (candidate == null || candidate.prefab == null)
                 continue;
 
-            if (BlockIdentity.NamesMatch(blockObject.name, candidate.displayName))
-            {
-                entry = candidate;
-                return true;
-            }
-
-            var candidatePrefab = GetPrefab(candidate);
-            if (candidatePrefab != null && BlockIdentity.Matches(blockObject, candidatePrefab))
+            if (BlockIdentity.Matches(blockObject, candidate.prefab))
             {
                 entry = candidate;
                 return true;

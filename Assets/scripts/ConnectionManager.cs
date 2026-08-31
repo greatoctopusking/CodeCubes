@@ -662,36 +662,6 @@ public class ConnectionManager : MonoBehaviour
         arrowhead.transform.rotation = Quaternion.LookRotation(direction);
     }
 
-    public void ClearAllConnections()
-    {
-        DeselectBlock();
-
-        for (int i = connections.Count - 1; i >= 0; i--)
-        {
-            if (connections[i].line != null)
-                Destroy(connections[i].line.gameObject);
-            if (connections[i].arrowhead != null)
-                Destroy(connections[i].arrowhead);
-        }
-
-        connections.Clear();
-
-        if (connectionsContainer != null)
-        {
-            for (int i = connectionsContainer.transform.childCount - 1; i >= 0; i--)
-                Destroy(connectionsContainer.transform.GetChild(i).gameObject);
-        }
-
-        foreach (var code in FindObjectsOfType<Code>())
-        {
-            code.next = null;
-            if (code is If ifBlock)
-                ifBlock.Judger = null;
-            else if (code is While whileBlock)
-                whileBlock.Judger = null;
-        }
-    }
-
     public void CleanupBlock(Code block)
     {
         if (block == null)

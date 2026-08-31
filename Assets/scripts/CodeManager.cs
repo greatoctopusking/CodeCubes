@@ -68,7 +68,7 @@ public class CodeManager : MonoBehaviour
         if (cur == null)
         {
             Debug.LogWarning("[CM] No Start block found in scene, nothing to execute");
-            FinishPlayRoutine();
+            playRoutine = null;
             yield break;
         }
 
@@ -191,14 +191,7 @@ public class CodeManager : MonoBehaviour
             RobotAnimator.SetBool("Open_Anim", false);
         }
 
-        FinishPlayRoutine();
-    }
-
-    private void FinishPlayRoutine()
-    {
         playRoutine = null;
-        if (LevelManager.Instance != null && LevelManager.Instance.IsLevelActive)
-            LevelManager.Instance.OnRunFinished();
     }
 
     void Update()
@@ -248,43 +241,35 @@ public class CodeManager : MonoBehaviour
 
     private void ToggleCodeExecution()
     {
-        bool inLevel = LevelManager.Instance != null && LevelManager.Instance.IsLevelActive;
-
-        if (playRoutine != null)
+        if (playRoutine == null)
         {
-            if (inLevel)
+            var start = FindObjectOfType<Start>();
+            var errors = CodeValidator.Validate(start);
+            if (errors.Count > 0)
+            {
+                var msg = string.Join("\n", errors.ConvertAll(e => e.message));
+                MenuManager.Instance?.SetStatus(msg);
+                AudioManager.Instance?.Play(SoundId.ValidationFail);
+                Debug.LogWarning($"[CM] Validation failed:\n{msg}");
                 return;
+            }
+            MenuManager.Instance?.ClearStatus();
 
+            RobotFacingIndicator.Instance?.Hide();
+            LevelBlockHintDisplay.Instance?.Hide();
+
+            loopStack.Clear();
+            ResetAllBlocks();
+            AudioManager.Instance?.Play(SoundId.ProgramStart);
+            playRoutine = StartCoroutine(PlayCoroutine());
+        }
+        else
+        {
             StopExecution();
             ResetAllBlocks();
-            return;
+            if (LevelManager.Instance != null && LevelManager.Instance.IsLevelActive)
+                LevelBlockHintDisplay.Instance?.Show(LevelManager.Instance.currentLevelData);
         }
-
-        if (inLevel && LevelManager.Instance.HasStartedThisAttempt)
-            return;
-
-        var start = FindObjectOfType<Start>();
-        var errors = CodeValidator.Validate(start);
-        if (errors.Count > 0)
-        {
-            var msg = string.Join("\n", errors.ConvertAll(e => e.message));
-            MenuManager.Instance?.SetStatus(msg);
-            AudioManager.Instance?.Play(SoundId.ValidationFail);
-            Debug.LogWarning($"[CM] Validation failed:\n{msg}");
-            return;
-        }
-        MenuManager.Instance?.ClearStatus();
-
-        RobotFacingIndicator.Instance?.Hide();
-        LevelBlockHintDisplay.Instance?.Hide();
-
-        if (inLevel)
-            LevelManager.Instance.NotifyRunStarted();
-
-        loopStack.Clear();
-        ResetAllBlocks();
-        AudioManager.Instance?.Play(SoundId.ProgramStart);
-        playRoutine = StartCoroutine(PlayCoroutine());
     }
 
     private WhileEnd FindMatchingWhileEnd(While whileBlock)

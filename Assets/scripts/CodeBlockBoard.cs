@@ -1,4 +1,3 @@
-using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -19,11 +18,6 @@ public class CodeBlockBoard : MonoBehaviour
     [Tooltip("Optional slot anchors placed on the board. When set, blocks spawn at these transforms instead of an auto grid.")]
     public Transform[] slotAnchors;
 
-    [Header("Start Block")]
-    [Tooltip("Where the unique Start block is placed when a level opens.")]
-    public Vector3 startDropPosition = new Vector3(-0.71f, 0.15f, 6.47f);
-    public Vector3 startDropEulerAngles = new Vector3(0f, 270f, 0f);
-
     [Header("Board Visual")]
     [Tooltip("Optional prefab for the wall board (e.g. cork board). Skipped when a visual child already exists.")]
     public GameObject boardVisualPrefab;
@@ -36,17 +30,7 @@ public class CodeBlockBoard : MonoBehaviour
     public Color frameColor = new Color(0.35f, 0.28f, 0.18f, 1f);
 
     private readonly List<CodeBlockSlot> slots = new List<CodeBlockSlot>();
-    private readonly List<SceneBlockPose> sceneBlockPoses = new List<SceneBlockPose>();
     private Transform slotsParent;
-
-    private struct SceneBlockPose
-    {
-        public Code code;
-        public Transform parent;
-        public Vector3 localPosition;
-        public Quaternion localRotation;
-        public Vector3 localScale;
-    }
 
     private void Awake()
     {
@@ -58,19 +42,9 @@ public class CodeBlockBoard : MonoBehaviour
         if (catalog == null)
             Debug.LogError("[CodeBlockBoard] CodeBlockCatalog not found. Place it at Assets/Resources/CodeBlockCatalog.asset");
 
-        CaptureSceneBlockPoses();
-        DestroyGeneratedBoardVisuals();
+        BuildBoardVisual();
         BuildSlots();
-        RestoreSceneBlockPoses();
-        RemoveLooseTurnBlocks();
         InitializePool();
-    }
-
-    private IEnumerator Start()
-    {
-        RestoreSceneBlockPoses();
-        yield return null;
-        RestoreSceneBlockPoses();
     }
 
     private void OnDestroy()
@@ -90,22 +64,24 @@ public class CodeBlockBoard : MonoBehaviour
         var poolItem = code.GetComponent<CodeBlockPoolItem>();
         if (poolItem == null || poolItem.sourcePrefab == null)
         {
-            if (!catalog.TryGetEntryForGameObject(code.gameObject, out var entry))
-                return false;
-
-            var prefab = catalog.GetPrefab(entry);
-            if (prefab == null)
+            if (catalog == null || !catalog.TryGetEntryForGameObject(code.gameObject, out var entry) || entry.prefab == null)
                 return false;
 
             poolItem = code.gameObject.AddComponent<CodeBlockPoolItem>();
-            poolItem.sourcePrefab = prefab;
+            poolItem.sourcePrefab = entry.prefab;
         }
 
         foreach (var slot in slots)
         {
-            if (slot.blockPrefab != poolItem.sourcePrefab || !slot.IsEmpty)
+            if (slot == null || !slot.IsEmpty || slot.blockPrefab == null)
                 continue;
 
+            bool sameType = slot.blockPrefab == poolItem.sourcePrefab ||
+                            BlockIdentity.Matches(code.gameObject, slot.blockPrefab);
+            if (!sameType)
+                continue;
+
+            poolItem.sourcePrefab = slot.blockPrefab;
             return slot.PlaceBlock(code.gameObject);
         }
 
@@ -115,114 +91,35 @@ public class CodeBlockBoard : MonoBehaviour
     public void ClearWorkspace()
     {
         var connectionManager = ConnectionManager.Instance;
-        connectionManager?.ClearAllConnections();
-
-        var codes = FindObjectsOfType<Code>(true);
-        var blocksToDestroy = new List<Code>();
+        var codes = FindObjectsOfType<Code>();
+        var blocksToReturn = new List<Code>();
 
         foreach (var code in codes)
         {
             if (code == null)
                 continue;
 
-            if (code.GetComponentInParent<Code>() != code)
-                continue;
-
-            if (code is Start)
-            {
-                code.next = null;
-                continue;
-            }
-
             if (code.GetComponent<CodeBlockShelfInstance>() != null)
                 continue;
 
-            blocksToDestroy.Add(code);
+            blocksToReturn.Add(code);
         }
 
-        foreach (var code in blocksToDestroy)
+        foreach (var code in blocksToReturn)
         {
             if (code == null)
                 continue;
 
             connectionManager?.CleanupBlock(code);
-            code.transform.SetParent(null, true);
-            Destroy(code.gameObject);
-        }
-    }
 
-    public void PlaceStartInWorkspace()
-    {
-        var startPrefab = GetStartPrefab();
-        var start = FindObjectOfType<Start>();
-
-        if (start == null && startPrefab != null)
-            start = Instantiate(startPrefab).GetComponent<Start>();
-
-        if (start == null)
-            return;
-
-        var shelf = start.GetComponent<CodeBlockShelfInstance>();
-        if (shelf != null && shelf.sourceSlot != null)
-            shelf.sourceSlot.ReleaseShelfBlock(start.gameObject, false);
-
-        start.transform.SetParent(null, true);
-        start.transform.SetPositionAndRotation(startDropPosition, Quaternion.Euler(startDropEulerAngles));
-        if (startPrefab != null)
-            start.transform.localScale = startPrefab.transform.localScale;
-
-        var poolItem = start.GetComponent<CodeBlockPoolItem>();
-        if (poolItem == null)
-            poolItem = start.gameObject.AddComponent<CodeBlockPoolItem>();
-        poolItem.sourcePrefab = startPrefab;
-
-        var rb = start.GetComponent<Rigidbody>();
-        if (rb != null)
-        {
-            rb.velocity = Vector3.zero;
-            rb.angularVelocity = Vector3.zero;
-            rb.isKinematic = true;
-            rb.useGravity = false;
-        }
-
-        ConnectionManager.Instance?.CleanupBlock(start);
-    }
-
-    public bool IsUniqueStartPrefab(GameObject prefab)
-    {
-        prefab = BlockIdentity.AsGameObject(prefab);
-        return prefab != null && prefab.GetComponent<Start>() != null;
-    }
-
-    private GameObject GetStartPrefab()
-    {
-        if (catalog == null)
-            return null;
-
-        for (int i = 0; i < catalog.EntryCount; i++)
-        {
-            var entry = catalog.GetEntry(i);
-            var prefab = catalog.GetPrefab(entry);
-            if (IsUniqueStartPrefab(prefab))
-                return prefab;
-        }
-
-        return null;
-    }
-
-    private void RemoveLooseTurnBlocks()
-    {
-        foreach (var code in FindObjectsOfType<Code>())
-        {
-            if (IsUnderBoard(code.transform))
+            if (ReturnBlock(code))
                 continue;
 
-            if (!(code is TurnLeftCode) && !(code is TurnRightCode))
-                continue;
-
-            startDropPosition = code.transform.position;
-            startDropEulerAngles = code.transform.eulerAngles;
-            Destroy(code.gameObject);
+            Debug.LogWarning($"[CodeBlockBoard] ClearWorkspace could not return '{code.name}'. Destroying as last resort.");
+            if (Application.isPlaying)
+                Destroy(code.gameObject);
+            else
+                DestroyImmediate(code.gameObject);
         }
     }
 
@@ -234,60 +131,102 @@ public class CodeBlockBoard : MonoBehaviour
         ValidateCatalogCounts();
     }
 
-    private bool IsUnderBoard(Transform target)
+    private void BuildBoardVisual()
     {
-        return target != null && (target == transform || target.IsChildOf(transform));
-    }
+        if (transform.Find("BoardVisual") != null)
+            return;
 
-    private void CaptureSceneBlockPoses()
-    {
-        sceneBlockPoses.Clear();
+        if (respectExistingBoardVisual && HasExistingBoardVisual())
+            return;
 
-        foreach (var code in CollectBoardCodeBlocks())
+        if (boardVisualPrefab != null)
         {
-            var t = code.transform;
-            sceneBlockPoses.Add(new SceneBlockPose
-            {
-                code = code,
-                parent = t.parent,
-                localPosition = t.localPosition,
-                localRotation = t.localRotation,
-                localScale = t.localScale
-            });
-        }
-    }
-
-    private void RestoreSceneBlockPoses()
-    {
-        foreach (var pose in sceneBlockPoses)
-        {
-            if (pose.code == null)
-                continue;
-
-            if (pose.code.GetComponent<CodeBlockShelfInstance>() == null)
-                continue;
-
-            var t = pose.code.transform;
-            if (pose.parent != null && t.parent != pose.parent)
-                t.SetParent(pose.parent, false);
-
-            t.localPosition = pose.localPosition;
-            t.localRotation = pose.localRotation;
-            t.localScale = pose.localScale;
+            var visual = Instantiate(boardVisualPrefab, transform);
+            visual.name = "BoardVisual";
+            visual.transform.localPosition = boardVisualLocalPosition;
+            visual.transform.localEulerAngles = boardVisualLocalEulerAngles;
+            visual.transform.localScale = boardVisualLocalScale;
+            return;
         }
 
-        foreach (var slot in slots)
-            slot.RefreshShelfPose();
+        if (useProceduralFallback)
+            BuildProceduralBoard();
     }
 
-    private void DestroyGeneratedBoardVisuals()
+    private bool HasExistingBoardVisual()
     {
-        string[] generated = { "BoardVisual", "BoardSurface", "FrameTop", "FrameBottom", "FrameLeft", "FrameRight" };
-        foreach (var name in generated)
+        foreach (Transform child in transform)
         {
-            var child = transform.Find(name);
-            if (child != null)
-                Destroy(child.gameObject);
+            if (child.name == "Slots")
+                continue;
+
+            if (child.GetComponentInChildren<Renderer>() != null)
+                return true;
+        }
+
+        return false;
+    }
+
+    private void BuildProceduralBoard()
+    {
+        if (transform.Find("BoardSurface") != null)
+            return;
+
+        if (catalog == null || catalog.EntryCount == 0)
+        {
+            CreateQuad("BoardSurface", new Vector3(0f, 0f, -0.03f),
+                new Vector3(2.2f, 1.4f, 1f),
+                Quaternion.Euler(0f, 180f, 0f), boardColor);
+            return;
+        }
+
+        int rows = Mathf.CeilToInt(catalog.EntryCount / (float)columns);
+        float boardWidth = (columns - 1) * columnSpacing + 0.5f;
+        float boardHeight = (rows - 1) * rowSpacing + 0.5f;
+
+        CreateQuad("BoardSurface", new Vector3(0f, 0f, -0.02f),
+            new Vector3(boardWidth + 0.3f, boardHeight + 0.3f, 1f),
+            Quaternion.Euler(0f, 180f, 0f), boardColor);
+
+        float frameThickness = 0.06f;
+        float halfW = (boardWidth + 0.3f) * 0.5f;
+        float halfH = (boardHeight + 0.3f) * 0.5f;
+
+        CreateQuad("FrameTop", new Vector3(0f, halfH + frameThickness * 0.5f, -0.01f),
+            new Vector3(boardWidth + 0.3f + frameThickness * 2f, frameThickness, 1f),
+            Quaternion.identity, frameColor);
+        CreateQuad("FrameBottom", new Vector3(0f, -halfH - frameThickness * 0.5f, -0.01f),
+            new Vector3(boardWidth + 0.3f + frameThickness * 2f, frameThickness, 1f),
+            Quaternion.identity, frameColor);
+        CreateQuad("FrameLeft", new Vector3(-halfW - frameThickness * 0.5f, 0f, -0.01f),
+            new Vector3(frameThickness, boardHeight + 0.3f, 1f),
+            Quaternion.identity, frameColor);
+        CreateQuad("FrameRight", new Vector3(halfW + frameThickness * 0.5f, 0f, -0.01f),
+            new Vector3(frameThickness, boardHeight + 0.3f, 1f),
+            Quaternion.identity, frameColor);
+    }
+
+    private void CreateQuad(string name, Vector3 localPos, Vector3 scale, Quaternion localRot, Color color)
+    {
+        var quad = GameObject.CreatePrimitive(PrimitiveType.Quad);
+        quad.name = name;
+        quad.transform.SetParent(transform, false);
+        quad.transform.localPosition = localPos;
+        quad.transform.localRotation = localRot;
+        quad.transform.localScale = scale;
+
+        var collider = quad.GetComponent<Collider>();
+        if (collider != null)
+            Destroy(collider);
+
+        var renderer = quad.GetComponent<Renderer>();
+        if (renderer != null)
+        {
+            var shader = Shader.Find("Universal Render Pipeline/Lit");
+            if (shader == null)
+                shader = Shader.Find("Standard");
+
+            renderer.material = new Material(shader) { color = color };
         }
     }
 
@@ -300,11 +239,26 @@ public class CodeBlockBoard : MonoBehaviour
 
         EnsureSlotsParent();
 
+        // Prefer scene-placed board blocks. Never spawn Cube fallbacks when any exist.
         var sceneBlocks = CollectBoardCodeBlocks();
         if (sceneBlocks.Count > 0)
         {
             TryBuildSlotsFromSceneBlocks(sceneBlocks);
             ValidateCatalogCounts();
+
+            if (slots.Count == 0)
+            {
+                Debug.LogError(
+                    $"[CodeBlockBoard] Found {sceneBlocks.Count} scene block(s) under the board but none matched CodeBlockCatalog. " +
+                    "Check BlockIdentity / prefab names. Runtime Cube spawn was skipped to avoid duplicates.");
+            }
+            else if (slots.Count != sceneBlocks.Count)
+            {
+                Debug.LogWarning(
+                    $"[CodeBlockBoard] Matched {slots.Count}/{sceneBlocks.Count} scene block(s) to Catalog. " +
+                    "Unmatched blocks stay on the board but are outside the pool.");
+            }
+
             return;
         }
 
@@ -328,17 +282,6 @@ public class CodeBlockBoard : MonoBehaviour
             slotsParent = slotsObject.transform;
             slotsParent.SetParent(transform, false);
         }
-
-        Vector3 parentScale = transform.lossyScale;
-        slotsParent.localScale = new Vector3(
-            InverseScale(parentScale.x),
-            InverseScale(parentScale.y),
-            InverseScale(parentScale.z));
-    }
-
-    private static float InverseScale(float value)
-    {
-        return Mathf.Abs(value) < 0.0001f ? 1f : 1f / value;
     }
 
     private bool TryBuildSlotsFromSceneBlocks(List<Code> sceneBlocks)
@@ -349,28 +292,28 @@ public class CodeBlockBoard : MonoBehaviour
         int slotIndex = 0;
         foreach (var code in sceneBlocks)
         {
-            if (!catalog.TryGetEntryForGameObject(code.gameObject, out var entry))
+            // Drop stale pool bindings so rematch uses live Code type / name.
+            var stalePool = code.GetComponent<CodeBlockPoolItem>();
+            if (stalePool != null)
             {
-                Debug.LogWarning($"[CodeBlockBoard] Could not match scene block '{code.name}' to CodeBlockCatalog.", code);
-                PinUnmatchedSceneBlock(code.gameObject);
-                continue;
+                if (Application.isPlaying)
+                    UnityEngine.Object.Destroy(stalePool);
+                else
+                    UnityEngine.Object.DestroyImmediate(stalePool);
             }
 
-            var prefab = catalog.GetPrefab(entry);
-            if (prefab == null)
+            if (!catalog.TryGetEntryForGameObject(code.gameObject, out var entry) || entry.prefab == null)
             {
-                Debug.LogWarning($"[CodeBlockBoard] Catalog entry '{entry.displayName}' has no GameObject prefab.", code);
-                PinUnmatchedSceneBlock(code.gameObject);
+                Debug.LogWarning($"[CodeBlockBoard] Could not match scene block '{code.name}' to CodeBlockCatalog.", code);
                 continue;
             }
 
             var slotObject = new GameObject($"Slot_{entry.displayName}_{slotIndex}");
             slotObject.transform.SetParent(slotsParent, true);
             slotObject.transform.SetPositionAndRotation(code.transform.position, code.transform.rotation);
-            slotObject.transform.localScale = Vector3.one;
 
             var slot = slotObject.AddComponent<CodeBlockSlot>();
-            slot.blockPrefab = prefab;
+            slot.blockPrefab = entry.prefab;
             slot.displayName = entry.displayName;
             slot.board = this;
             slot.RegisterPlacedBlock(code.gameObject);
@@ -400,24 +343,6 @@ public class CodeBlockBoard : MonoBehaviour
         return results;
     }
 
-    private static void PinUnmatchedSceneBlock(GameObject block)
-    {
-        if (block == null)
-            return;
-
-        var rb = block.GetComponent<Rigidbody>();
-        if (rb != null)
-        {
-            rb.velocity = Vector3.zero;
-            rb.angularVelocity = Vector3.zero;
-            rb.isKinematic = true;
-            rb.useGravity = false;
-        }
-
-        if (block.GetComponent<CodeBlockShelfInstance>() == null)
-            block.AddComponent<CodeBlockShelfInstance>();
-    }
-
     private void ValidateCatalogCounts()
     {
         var counts = new Dictionary<GameObject, int>();
@@ -436,21 +361,15 @@ public class CodeBlockBoard : MonoBehaviour
         for (int i = 0; i < catalog.EntryCount; i++)
         {
             var entry = catalog.GetEntry(i);
-            if (entry == null)
+            if (entry == null || entry.prefab == null)
                 continue;
 
-            var prefab = catalog.GetPrefab(entry);
-            if (prefab == null)
-                continue;
+            counts.TryGetValue(entry.prefab, out int sceneCount);
 
-            if (!IsUniqueStartPrefab(prefab))
-                continue;
-
-            counts.TryGetValue(prefab, out int sceneCount);
-            if (sceneCount != 1)
+            if (sceneCount != entry.maxCount)
             {
                 Debug.LogWarning(
-                    $"[CodeBlockBoard] Start should have exactly 1 block on the board, found {sceneCount}.");
+                    $"[CodeBlockBoard] '{entry.displayName}' has {sceneCount} block(s) on the board but CodeBlockCatalog maxCount is {entry.maxCount}.");
             }
         }
     }
@@ -466,7 +385,7 @@ public class CodeBlockBoard : MonoBehaviour
             if (slotAnchors[i] == null)
                 continue;
 
-            CreateSlotAt(slotAnchors[i], catalog.GetPrefab(entry), entry.displayName);
+            CreateSlotAt(slotAnchors[i], entry.prefab, entry.displayName);
         }
     }
 
@@ -489,7 +408,7 @@ public class CodeBlockBoard : MonoBehaviour
             slotObject.transform.localPosition = new Vector3(x, y, 0.12f);
             slotObject.transform.localRotation = Quaternion.identity;
 
-            CreateSlotAt(slotObject.transform, catalog.GetPrefab(entry), entry.displayName);
+            CreateSlotAt(slotObject.transform, entry.prefab, entry.displayName);
         }
     }
 
@@ -500,7 +419,7 @@ public class CodeBlockBoard : MonoBehaviour
         for (int i = 0; i < catalog.EntryCount; i++)
         {
             var entry = catalog.GetEntry(i);
-            if (entry == null || catalog.GetPrefab(entry) == null)
+            if (entry == null || entry.prefab == null)
                 continue;
 
             int count = Mathf.Max(1, entry.maxCount);
@@ -515,12 +434,11 @@ public class CodeBlockBoard : MonoBehaviour
     {
         foreach (var slot in slots)
         {
-            var prefab = BlockIdentity.AsGameObject(slot.blockPrefab);
-            if (!slot.IsEmpty || prefab == null)
+            if (!slot.IsEmpty || slot.blockPrefab == null)
                 continue;
 
-            var block = Instantiate(prefab, slot.transform.position, slot.transform.rotation);
-            block.transform.localScale = prefab.transform.localScale;
+            var block = Instantiate(slot.blockPrefab, slot.transform.position, slot.transform.rotation);
+            block.transform.localScale = slot.blockPrefab.transform.localScale;
             slot.RegisterPlacedBlock(block);
         }
     }

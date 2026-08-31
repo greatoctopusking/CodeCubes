@@ -152,31 +152,8 @@ public class MenuManager : MonoBehaviour
         HideAll();
         if (levelFailedPanel != null) levelFailedPanel.SetActive(true);
         if (failedLevelNameText != null)
-            failedLevelNameText.text = "Fail";
+            failedLevelNameText.text = $"Wrong Order!";
         AudioManager.Instance?.Play(SoundId.LevelFail);
-        if (failRetryButton != null)
-        {
-            var retryLabel = failRetryButton.GetComponentInChildren<TMP_Text>();
-            if (retryLabel != null) retryLabel.text = "Try again!";
-        }
-        if (failLeaveButton != null)
-        {
-            var leaveLabel = failLeaveButton.GetComponentInChildren<TMP_Text>();
-            if (leaveLabel != null) leaveLabel.text = "Leave";
-        }
-        LayoutFailOptionsTopToBottom();
-    }
-
-    private void LayoutFailOptionsTopToBottom()
-    {
-        if (levelFailedPanel == null) return;
-
-        if (failedLevelNameText != null)
-            failedLevelNameText.transform.SetSiblingIndex(0);
-        if (failRetryButton != null)
-            failRetryButton.transform.SetSiblingIndex(1);
-        if (failLeaveButton != null)
-            failLeaveButton.transform.SetSiblingIndex(2);
     }
 
     private void UpdateLevelName()

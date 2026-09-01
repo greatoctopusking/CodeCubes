@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.XR.Interaction.Toolkit.Interactables;
 
 [DefaultExecutionOrder(-100)]
 public class CodeBlockBoard : MonoBehaviour
@@ -37,9 +38,20 @@ public class CodeBlockBoard : MonoBehaviour
     public Vector3 startBlockGroundPosition = new Vector3(1.95f, 0.4f, 6.9f);
 
     private readonly List<CodeBlockSlot> slots = new List<CodeBlockSlot>();
+    private readonly Dictionary<string, WallStackTemplate> wallStacks = new Dictionary<string, WallStackTemplate>();
     private Transform slotsParent;
     private Vector3 startWorkspaceScale = Vector3.one;
     private bool hasStartWorkspaceScale;
+
+    private struct WallStackTemplate
+    {
+        public CodeBlockEntry entry;
+        public Transform wallParent;
+        public Vector3 localPosition;
+        public Quaternion localRotation;
+        public Vector3 localScale;
+        public GameObject templateBlock;
+    }
 
     private void Awake()
     {
@@ -292,6 +304,7 @@ public class CodeBlockBoard : MonoBehaviour
     private void BuildSlots()
     {
         slots.Clear();
+        wallStacks.Clear();
 
         if (catalog == null || catalog.EntryCount == 0)
             return;
@@ -304,6 +317,8 @@ public class CodeBlockBoard : MonoBehaviour
         {
             TryBuildSlotsFromSceneBlocks(sceneBlocks);
             PruneInactiveStartDuplicates();
+            int adoptedFromScene = slots.Count;
+            FillMissingCatalogSlots();
             ValidateCatalogCounts();
 
             if (slots.Count == 0)
@@ -312,10 +327,10 @@ public class CodeBlockBoard : MonoBehaviour
                     $"[CodeBlockBoard] Found {sceneBlocks.Count} scene block(s) under the board but none matched CodeBlockCatalog. " +
                     "Check BlockIdentity / prefab names. Runtime Cube spawn was skipped to avoid duplicates.");
             }
-            else if (slots.Count != sceneBlocks.Count)
+            else if (adoptedFromScene != sceneBlocks.Count)
             {
                 Debug.LogWarning(
-                    $"[CodeBlockBoard] Matched {slots.Count}/{sceneBlocks.Count} scene block(s) to Catalog. " +
+                    $"[CodeBlockBoard] Matched {adoptedFromScene}/{sceneBlocks.Count} scene block(s) to Catalog. " +
                     "Unmatched blocks stay on the board but are outside the pool.");
             }
 
@@ -385,9 +400,13 @@ public class CodeBlockBoard : MonoBehaviour
 
             countsByPrefab[entry.prefab] = existing + 1;
 
+            RememberWallStack(entry, code);
+
             var slotObject = new GameObject($"Slot_{entry.displayName}_{slotIndex}");
-            slotObject.transform.SetParent(slotsParent, true);
-            slotObject.transform.SetPositionAndRotation(code.transform.position, code.transform.rotation);
+            slotObject.transform.SetParent(code.transform.parent, false);
+            slotObject.transform.localPosition = code.transform.localPosition;
+            slotObject.transform.localRotation = code.transform.localRotation;
+            slotObject.transform.localScale = Vector3.one;
 
             var slot = slotObject.AddComponent<CodeBlockSlot>();
             slot.blockPrefab = entry.prefab;
@@ -452,6 +471,104 @@ public class CodeBlockBoard : MonoBehaviour
                     $"[CodeBlockBoard] '{entry.displayName}' has {sceneCount} block(s) on the board but CodeBlockCatalog maxCount is {entry.maxCount}.");
             }
         }
+    }
+
+    private void RememberWallStack(CodeBlockEntry entry, Code code)
+    {
+        if (entry == null || code == null || string.IsNullOrEmpty(entry.displayName))
+            return;
+
+        if (wallStacks.ContainsKey(entry.displayName))
+            return;
+
+        wallStacks[entry.displayName] = new WallStackTemplate
+        {
+            entry = entry,
+            wallParent = code.transform.parent,
+            localPosition = code.transform.localPosition,
+            localRotation = code.transform.localRotation,
+            localScale = code.transform.localScale,
+            templateBlock = code.gameObject
+        };
+    }
+
+    private void FillMissingCatalogSlots()
+    {
+        if (catalog == null)
+            return;
+
+        for (int i = 0; i < catalog.EntryCount; i++)
+        {
+            var entry = catalog.GetEntry(i);
+            if (entry == null || entry.prefab == null)
+                continue;
+
+            int max = Mathf.Max(1, entry.maxCount);
+            int existingCount = 0;
+            foreach (var slot in slots)
+            {
+                if (slot != null && slot.blockPrefab == entry.prefab)
+                    existingCount++;
+            }
+
+            if (existingCount >= max)
+                continue;
+
+            if (!wallStacks.TryGetValue(entry.displayName, out var stack) ||
+                stack.wallParent == null ||
+                stack.templateBlock == null)
+            {
+                Debug.LogWarning(
+                    $"[CodeBlockBoard] '{entry.displayName}' needs {max} copies but no wall stack template exists.");
+                continue;
+            }
+
+            for (int copy = existingCount; copy < max; copy++)
+                SpawnWallStackCopy(stack, copy);
+        }
+    }
+
+    private void SpawnWallStackCopy(WallStackTemplate stack, int copyIndex)
+    {
+        var entry = stack.entry;
+        var slotObject = new GameObject($"Slot_{entry.displayName}_{copyIndex}");
+        slotObject.transform.SetParent(stack.wallParent, false);
+        slotObject.transform.localPosition = stack.localPosition;
+        slotObject.transform.localRotation = stack.localRotation;
+        slotObject.transform.localScale = Vector3.one;
+
+        var slot = slotObject.AddComponent<CodeBlockSlot>();
+        slot.blockPrefab = entry.prefab;
+        slot.displayName = entry.displayName;
+        slot.board = this;
+        slots.Add(slot);
+
+        var clone = Instantiate(stack.templateBlock);
+        clone.name = stack.templateBlock.name;
+        StripCloneRuntimeState(clone);
+        clone.transform.SetParent(stack.wallParent, false);
+        clone.transform.localPosition = stack.localPosition;
+        clone.transform.localRotation = stack.localRotation;
+        clone.transform.localScale = stack.localScale;
+        slot.RegisterPlacedBlock(clone);
+    }
+
+    private static void StripCloneRuntimeState(GameObject clone)
+    {
+        if (clone == null)
+            return;
+
+        var grab = clone.GetComponent<XRGrabInteractable>();
+        if (grab != null)
+            grab.selectEntered.RemoveAllListeners();
+
+        var shelf = clone.GetComponent<CodeBlockShelfInstance>();
+        if (shelf != null)
+            DestroyImmediate(shelf);
+
+        var pool = clone.GetComponent<CodeBlockPoolItem>();
+        if (pool != null)
+            DestroyImmediate(pool);
     }
 
     private void BuildSlotsFromAnchors()

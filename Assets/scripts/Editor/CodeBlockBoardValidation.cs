@@ -120,7 +120,8 @@ public static class CodeBlockBoardValidation
         foreach (var f in failures)
             sb.AppendLine("  " + f);
 
-        ok &= matched == codes.Count && matched == catalog.TotalBlockCount && slots.Length == catalog.TotalBlockCount;
+        // Scene may hold fewer copies than Catalog; BuildSlots clones extras up to maxCount.
+        ok &= matched == codes.Count && slots.Length == catalog.TotalBlockCount;
 
         // G1-style: grab one, slot empty, return.
         CodeBlockSlot sampleSlot = null;

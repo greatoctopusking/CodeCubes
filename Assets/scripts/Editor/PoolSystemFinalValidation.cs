@@ -58,7 +58,7 @@ public static class PoolSystemFinalValidation
         sb.AppendLine("-- Stage F --");
         ok &= Check(sb, board != null, "F1 CodeBlockBoard present");
         ok &= Check(sb, trash != null && trash.GetComponent<Collider>() is Collider tc && tc.isTrigger, "F2 TrashCan trigger");
-        ok &= Check(sb, catalog != null && catalog.TotalBlockCount == 45, $"F3 Catalog TotalBlockCount={catalog?.TotalBlockCount}");
+        ok &= Check(sb, catalog != null && catalog.TotalBlockCount > 0, $"F3 Catalog TotalBlockCount={catalog?.TotalBlockCount}");
         ok &= Check(sb, levelManager != null, "F/E LevelManager present");
 
         bool garageInBuild = false;
@@ -94,7 +94,8 @@ public static class PoolSystemFinalValidation
 
         InvokePrivate(board, "BuildSlots");
         var slotComps = board.GetComponentsInChildren<CodeBlockSlot>(true);
-        ok &= Check(sb, slotComps.Length == 45, $"F4/C2 slots built={slotComps.Length}");
+        int expectedBlocks = catalog.TotalBlockCount;
+        ok &= Check(sb, slotComps.Length == expectedBlocks, $"F4/C2 slots built={slotComps.Length} expected={expectedBlocks}");
 
         sb.AppendLine("-- Stage D / G --");
 
@@ -131,7 +132,7 @@ public static class PoolSystemFinalValidation
             if (slot != null && !slot.IsEmpty)
                 shelf++;
         }
-        ok &= Check(sb, shelf + pulled.Count == 45, $"G9 conservation shelf({shelf})+workspace({pulled.Count})=45");
+        ok &= Check(sb, shelf + pulled.Count == expectedBlocks, $"G9 conservation shelf({shelf})+workspace({pulled.Count})={expectedBlocks}");
 
         // G2 ReturnBlock (trash success path)
         if (pulled.Count > 0)
@@ -151,7 +152,7 @@ public static class PoolSystemFinalValidation
             if (slot != null && !slot.IsEmpty)
                 occupied++;
         }
-        ok &= Check(sb, occupied == 45, $"E/G6 ClearWorkspace occupied={occupied}");
+        ok &= Check(sb, occupied == expectedBlocks, $"E/G6 ClearWorkspace occupied={occupied}");
 
         bool allRestored = true;
         foreach (var p in pulled)

@@ -15,7 +15,7 @@ MonoBehaviour:
   entries:
   - displayName: Start
     prefab: {fileID: 100100000, guid: f8d1f62b27da9404597b8848415f27e5, type: 3}
-    maxCount: 3
+    maxCount: 1
   - displayName: MoveForward
     prefab: {fileID: 100100000, guid: 2dd00826c8e408547a041493db809e39, type: 3}
     maxCount: 3

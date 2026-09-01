@@ -29,8 +29,17 @@ public class CodeBlockBoard : MonoBehaviour
     public Color boardColor = new Color(0.18f, 0.22f, 0.16f, 1f);
     public Color frameColor = new Color(0.35f, 0.28f, 0.18f, 1f);
 
+    [Header("Start Block")]
+    [Tooltip("Optional. When set, the unique Start block is placed here at the start of each level.")]
+    public Transform startBlockSpawnPoint;
+
+    [Tooltip("Used when Start Block Spawn Point is empty. Place the unique Start on the floor near the board.")]
+    public Vector3 startBlockGroundPosition = new Vector3(1.95f, 0.4f, 6.9f);
+
     private readonly List<CodeBlockSlot> slots = new List<CodeBlockSlot>();
     private Transform slotsParent;
+    private Vector3 startWorkspaceScale = Vector3.one;
+    private bool hasStartWorkspaceScale;
 
     private void Awake()
     {
@@ -116,10 +125,60 @@ public class CodeBlockBoard : MonoBehaviour
                 continue;
 
             Debug.LogWarning($"[CodeBlockBoard] ClearWorkspace could not return '{code.name}'. Destroying as last resort.");
-            if (Application.isPlaying)
-                Destroy(code.gameObject);
-            else
-                DestroyImmediate(code.gameObject);
+            DestroyBlock(code.gameObject);
+        }
+    }
+
+    /// <summary>
+    /// Ensures exactly one Start exists and places it on the ground for the current level.
+    /// Taking it off the shelf does not restock the wall.
+    /// </summary>
+    public void PlaceUniqueStartOnGround()
+    {
+        var starts = FindObjectsOfType<Start>(true);
+        Start keep = FindPreferredStart(starts);
+
+        foreach (var start in starts)
+        {
+            if (start == null || start == keep)
+                continue;
+
+            ReleaseFromShelf(start);
+            DestroyBlock(start.gameObject);
+        }
+
+        if (keep == null)
+            keep = SpawnStartFromCatalog();
+
+        if (keep == null)
+        {
+            Debug.LogWarning("[CodeBlockBoard] No Start block available to place on the ground.");
+            return;
+        }
+
+        ReleaseFromShelf(keep);
+        ConnectionManager.Instance?.CleanupBlock(keep);
+
+        keep.transform.SetParent(null, true);
+        keep.transform.position = ResolveStartGroundPosition();
+
+        if (!hasStartWorkspaceScale)
+        {
+            startWorkspaceScale = keep.transform.localScale;
+            hasStartWorkspaceScale = true;
+        }
+        else
+        {
+            keep.transform.localScale = startWorkspaceScale;
+        }
+
+        var rb = keep.GetComponent<Rigidbody>();
+        if (rb != null)
+        {
+            rb.velocity = Vector3.zero;
+            rb.angularVelocity = Vector3.zero;
+            rb.isKinematic = false;
+            rb.useGravity = true;
         }
     }
 
@@ -244,6 +303,7 @@ public class CodeBlockBoard : MonoBehaviour
         if (sceneBlocks.Count > 0)
         {
             TryBuildSlotsFromSceneBlocks(sceneBlocks);
+            PruneInactiveStartDuplicates();
             ValidateCatalogCounts();
 
             if (slots.Count == 0)
@@ -289,9 +349,16 @@ public class CodeBlockBoard : MonoBehaviour
         if (sceneBlocks == null || sceneBlocks.Count == 0)
             return false;
 
+        sceneBlocks.Sort((a, b) => string.CompareOrdinal(a.name, b.name));
+
         int slotIndex = 0;
+        var countsByPrefab = new Dictionary<GameObject, int>();
+
         foreach (var code in sceneBlocks)
         {
+            if (code == null || !code.gameObject.activeInHierarchy)
+                continue;
+
             // Drop stale pool bindings so rematch uses live Code type / name.
             var stalePool = code.GetComponent<CodeBlockPoolItem>();
             if (stalePool != null)
@@ -307,6 +374,16 @@ public class CodeBlockBoard : MonoBehaviour
                 Debug.LogWarning($"[CodeBlockBoard] Could not match scene block '{code.name}' to CodeBlockCatalog.", code);
                 continue;
             }
+
+            countsByPrefab.TryGetValue(entry.prefab, out int existing);
+            int max = Mathf.Max(1, entry.maxCount);
+            if (existing >= max)
+            {
+                DestroyBlock(code.gameObject);
+                continue;
+            }
+
+            countsByPrefab[entry.prefab] = existing + 1;
 
             var slotObject = new GameObject($"Slot_{entry.displayName}_{slotIndex}");
             slotObject.transform.SetParent(slotsParent, true);
@@ -332,6 +409,9 @@ public class CodeBlockBoard : MonoBehaviour
         foreach (var code in codes)
         {
             if (code.transform == transform)
+                continue;
+
+            if (!code.gameObject.activeInHierarchy)
                 continue;
 
             if (code.GetComponentInParent<CodeBlockBoard>() != this)
@@ -454,6 +534,118 @@ public class CodeBlockBoard : MonoBehaviour
         slot.displayName = entryDisplayName;
         slot.board = this;
         slots.Add(slot);
+    }
+
+    private static Start FindPreferredStart(Start[] starts)
+    {
+        if (starts == null)
+            return null;
+
+        Start workspace = null;
+        Start shelf = null;
+        Start any = null;
+
+        foreach (var start in starts)
+        {
+            if (start == null)
+                continue;
+
+            if (any == null)
+                any = start;
+
+            if (!start.gameObject.activeInHierarchy)
+                continue;
+
+            if (start.GetComponent<CodeBlockShelfInstance>() == null)
+            {
+                if (workspace == null)
+                    workspace = start;
+            }
+            else if (shelf == null)
+            {
+                shelf = start;
+            }
+        }
+
+        if (workspace != null)
+            return workspace;
+        if (shelf != null)
+            return shelf;
+        return any;
+    }
+
+    private void PruneInactiveStartDuplicates()
+    {
+        foreach (var start in GetComponentsInChildren<Start>(true))
+        {
+            if (start == null || start.gameObject.activeInHierarchy)
+                continue;
+
+            DestroyBlock(start.gameObject);
+        }
+    }
+
+    private static void ReleaseFromShelf(Start start)
+    {
+        if (start == null)
+            return;
+
+        var shelf = start.GetComponent<CodeBlockShelfInstance>();
+        if (shelf == null || shelf.sourceSlot == null)
+            return;
+
+        shelf.sourceSlot.ReleaseShelfBlock(start.gameObject);
+    }
+
+    private Start SpawnStartFromCatalog()
+    {
+        if (catalog == null)
+            return null;
+
+        for (int i = 0; i < catalog.EntryCount; i++)
+        {
+            var entry = catalog.GetEntry(i);
+            if (entry == null || entry.prefab == null)
+                continue;
+
+            if (!BlockIdentity.NamesMatch(entry.displayName, "Start") &&
+                !BlockIdentity.NamesMatch(entry.prefab.name, "Start"))
+                continue;
+
+            var spawned = Instantiate(entry.prefab, ResolveStartGroundPosition(), Quaternion.identity);
+            spawned.name = entry.displayName;
+
+            var poolItem = spawned.GetComponent<CodeBlockPoolItem>();
+            if (poolItem == null)
+                poolItem = spawned.AddComponent<CodeBlockPoolItem>();
+            poolItem.sourcePrefab = entry.prefab;
+
+            return spawned.GetComponent<Start>();
+        }
+
+        return null;
+    }
+
+    private Vector3 ResolveStartGroundPosition()
+    {
+        if (startBlockSpawnPoint != null)
+            return startBlockSpawnPoint.position;
+
+        if (startBlockGroundPosition.sqrMagnitude > 0.0001f)
+            return startBlockGroundPosition;
+
+        return new Vector3(transform.position.x, 0.4f, transform.position.z) + transform.forward * 0.8f;
+    }
+
+    private static void DestroyBlock(GameObject block)
+    {
+        if (block == null)
+            return;
+
+        if (Application.isPlaying)
+            Destroy(block);
+        else
+            DestroyImmediate(block);
     }
 
     private void OnDrawGizmosSelected()

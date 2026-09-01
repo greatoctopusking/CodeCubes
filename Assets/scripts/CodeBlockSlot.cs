@@ -21,7 +21,6 @@ public class CodeBlockSlot : MonoBehaviour
             return;
 
         shelfBlock = block;
-        shelfLocalScale = block.transform.localScale;
 
         var poolItem = block.GetComponent<CodeBlockPoolItem>();
         if (poolItem == null)
@@ -29,7 +28,10 @@ public class CodeBlockSlot : MonoBehaviour
 
         poolItem.sourcePrefab = blockPrefab;
 
+        // Capture local scale after parenting so later returns restore the on-shelf size
+        // instead of compounding the board's non-uniform world scale.
         block.transform.SetParent(transform, true);
+        shelfLocalScale = block.transform.localScale;
         ApplyShelfState(block);
         BindGrabListener(block);
     }
@@ -44,7 +46,6 @@ public class CodeBlockSlot : MonoBehaviour
             return false;
 
         shelfBlock = block;
-        shelfLocalScale = block.transform.localScale;
 
         block.transform.SetParent(transform, true);
         block.transform.SetPositionAndRotation(transform.position, transform.rotation);

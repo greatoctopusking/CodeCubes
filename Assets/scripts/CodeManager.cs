@@ -249,7 +249,7 @@ public class CodeManager : MonoBehaviour
             var start = FindProgramStart();
             if (start == null)
             {
-                const string msg = "Drag a Start block off the board and connect your program to it.";
+                const string msg = "Connect your program to the Start block on the ground.";
                 MenuManager.Instance?.SetStatus(msg);
                 AudioManager.Instance?.Play(SoundId.ValidationFail);
                 Debug.LogWarning($"[CM] {msg}");

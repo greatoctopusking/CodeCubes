@@ -71,6 +71,8 @@ public static class CodeBlockBoardValidation
         {
             if (code.transform == board.transform)
                 continue;
+            if (!code.gameObject.activeInHierarchy)
+                continue;
             if (code.GetComponentInParent<CodeBlockBoard>() != board)
                 continue;
             codes.Add(code);

@@ -172,8 +172,55 @@ public class MenuManager : MonoBehaviour
         HideAll();
         if (levelFailedPanel != null) levelFailedPanel.SetActive(true);
         if (failedLevelNameText != null)
-            failedLevelNameText.text = $"Wrong Order!";
+            failedLevelNameText.text = $"Level {levelManager.currentLevelData.levelNumber}";
+        SetButtonLabel(failRetryButton, "Retry");
+        SetButtonLabel(failLeaveButton, "Leave");
+        LayoutFailOptionsCentered();
         AudioManager.Instance?.Play(SoundId.LevelFail);
+    }
+
+    private static void SetButtonLabel(Button button, string label)
+    {
+        if (button == null) return;
+        var text = button.GetComponentInChildren<TMP_Text>();
+        if (text != null) text.text = label;
+    }
+
+    private void LayoutFailOptionsCentered()
+    {
+        if (levelFailedPanel == null) return;
+
+        if (failedLevelNameText != null)
+        {
+            failedLevelNameText.transform.SetSiblingIndex(0);
+            failedLevelNameText.alignment = TextAlignmentOptions.Center;
+            failedLevelNameText.enableWordWrapping = false;
+            failedLevelNameText.margin = Vector4.zero;
+            PlaceFailItem(failedLevelNameText.rectTransform, -120f, new Vector2(480f, 80f));
+        }
+
+        if (failRetryButton != null)
+        {
+            failRetryButton.transform.SetSiblingIndex(1);
+            PlaceFailItem(failRetryButton.GetComponent<RectTransform>(), -250f, new Vector2(200f, 40f));
+        }
+
+        if (failLeaveButton != null)
+        {
+            failLeaveButton.transform.SetSiblingIndex(2);
+            PlaceFailItem(failLeaveButton.GetComponent<RectTransform>(), -360f, new Vector2(200f, 40f));
+        }
+    }
+
+    private static void PlaceFailItem(RectTransform rt, float y, Vector2 size)
+    {
+        if (rt == null) return;
+        rt.anchorMin = new Vector2(0f, 1f);
+        rt.anchorMax = new Vector2(0f, 1f);
+        rt.pivot = new Vector2(0.5f, 0.5f);
+        rt.anchoredPosition = new Vector2(396f, y);
+        rt.sizeDelta = size;
+        rt.localScale = Vector3.one;
     }
 
     private void UpdateLevelName()

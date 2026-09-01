@@ -46,7 +46,27 @@ public class MenuManager : MonoBehaviour
         if (blockHintDisplay == null)
             blockHintDisplay = gameObject.AddComponent<LevelBlockHintDisplay>();
         BindButtons();
+        DisablePanelBackgroundRaycasts();
         ShowTitle();
+    }
+
+    private void DisablePanelBackgroundRaycasts()
+    {
+        DisableBackgroundRaycast(titlePanel);
+        DisableBackgroundRaycast(levelSelectPanel);
+        DisableBackgroundRaycast(inLevelPanel);
+        DisableBackgroundRaycast(levelCompletePanel);
+        DisableBackgroundRaycast(levelFailedPanel);
+    }
+
+    private static void DisableBackgroundRaycast(GameObject panel)
+    {
+        if (panel == null)
+            return;
+
+        var image = panel.GetComponent<Image>();
+        if (image != null)
+            image.raycastTarget = false;
     }
 
     public void SetStatus(string msg)

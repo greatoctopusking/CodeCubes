@@ -29,14 +29,23 @@ public class CodeManager : MonoBehaviour
             RobotAnimator = robot.GetComponent<Animator>();
         }
 
-        if (inputActions != null)
-        {
-            leftTriggerAction = inputActions.FindAction("Activate");
-            if (leftTriggerAction != null)
-            {
-                leftTriggerAction.Enable();
-            }
-        }
+        BindLeftTrigger();
+    }
+
+    private void BindLeftTrigger()
+    {
+        if (inputActions == null)
+            return;
+
+        var leftMap = inputActions.FindActionMap("XRI Left Interaction");
+        leftTriggerAction = leftMap != null
+            ? leftMap.FindAction("Activate")
+            : inputActions.FindAction("Activate");
+
+        if (leftTriggerAction != null)
+            leftTriggerAction.Enable();
+        else
+            Debug.LogError("[CM] Left Activate action not found");
     }
 
     private void OnDestroy()
@@ -47,7 +56,7 @@ public class CodeManager : MonoBehaviour
         }
     }
 
-    private IEnumerator PlayCoroutine()
+    private IEnumerator PlayCoroutine(Start startBlock)
     {
         if (RobotAnimator != null)
         {
@@ -64,10 +73,10 @@ public class CodeManager : MonoBehaviour
             AudioManager.Instance?.Play(SoundId.RobotBoot);
         }
 
-        Code cur = FindObjectOfType<Start>();
+        Code cur = startBlock;
         if (cur == null)
         {
-            Debug.LogWarning("[CM] No Start block found in scene, nothing to execute");
+            Debug.LogWarning("[CM] No workspace Start block to execute");
             playRoutine = null;
             yield break;
         }
@@ -203,15 +212,9 @@ public class CodeManager : MonoBehaviour
     {
         if (leftTriggerAction == null)
         {
-            if (inputActions != null)
-            {
-                leftTriggerAction = inputActions.FindAction("Activate");
-                if (leftTriggerAction != null)
-                {
-                    leftTriggerAction.Enable();
-                }
-            }
-            return;
+            BindLeftTrigger();
+            if (leftTriggerAction == null)
+                return;
         }
         
         bool pressed = leftTriggerAction.IsPressed();
@@ -243,7 +246,16 @@ public class CodeManager : MonoBehaviour
     {
         if (playRoutine == null)
         {
-            var start = FindObjectOfType<Start>();
+            var start = FindProgramStart();
+            if (start == null)
+            {
+                const string msg = "Drag a Start block off the board and connect your program to it.";
+                MenuManager.Instance?.SetStatus(msg);
+                AudioManager.Instance?.Play(SoundId.ValidationFail);
+                Debug.LogWarning($"[CM] {msg}");
+                return;
+            }
+
             var errors = CodeValidator.Validate(start);
             if (errors.Count > 0)
             {
@@ -259,14 +271,15 @@ public class CodeManager : MonoBehaviour
             LevelBlockHintDisplay.Instance?.Hide();
 
             loopStack.Clear();
-            ResetAllBlocks();
+            ResetAllBlocks(start);
             AudioManager.Instance?.Play(SoundId.ProgramStart);
-            playRoutine = StartCoroutine(PlayCoroutine());
+            Debug.Log($"[CM] Run '{start.name}'");
+            playRoutine = StartCoroutine(PlayCoroutine(start));
         }
         else
         {
             StopExecution();
-            ResetAllBlocks();
+            ResetAllBlocks(FindProgramStart());
             if (LevelManager.Instance != null && LevelManager.Instance.IsLevelActive)
                 LevelBlockHintDisplay.Instance?.Show(LevelManager.Instance.currentLevelData);
         }
@@ -326,10 +339,29 @@ public class CodeManager : MonoBehaviour
         return null;
     }
 
-    private void ResetAllBlocks()
+    private static Start FindProgramStart()
     {
-        Code cur = FindObjectOfType<Start>();
-        if (cur == null) return;
+        Start connected = null;
+        Start workspace = null;
+
+        foreach (var start in FindObjectsOfType<Start>())
+        {
+            if (start == null || start.GetComponent<CodeBlockShelfInstance>() != null)
+                continue;
+
+            if (workspace == null)
+                workspace = start;
+
+            if (start.next != null && connected == null)
+                connected = start;
+        }
+
+        return connected != null ? connected : workspace;
+    }
+
+    private void ResetAllBlocks(Start start)
+    {
+        Code cur = start;
         while (cur != null)
         {
             cur.ResetState();

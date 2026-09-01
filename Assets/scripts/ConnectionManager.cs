@@ -196,6 +196,9 @@ public class ConnectionManager : MonoBehaviour
 
     private void Update()
     {
+        if (selectedBlock != null && !CanConnectBlock(selectedBlock))
+            DeselectBlock();
+
         UpdatePreviewLine();
         UpdateAllConnectionLines();
     }
@@ -251,12 +254,18 @@ public class ConnectionManager : MonoBehaviour
         return false;
     }
 
-    private readonly RaycastHit[] hitBuffer = new RaycastHit[16];
+    private readonly RaycastHit[] hitBuffer = new RaycastHit[64];
 
     private void HandleActivatePress()
     {
         if (isOverUI)
             return;
+
+        if (!IsLevelPlayActive())
+        {
+            DeselectBlock();
+            return;
+        }
 
         if (!TryGetRay(out Ray ray))
             return;
@@ -267,27 +276,7 @@ public class ConnectionManager : MonoBehaviour
             return;
         }
 
-        int hitCount = Physics.RaycastNonAlloc(ray, hitBuffer, maxPreviewDistance, blockLayerMask);
-        Code hitBlock = null;
-
-        for (int i = 0; i < hitCount; i++)
-        {
-            var block = hitBuffer[i].collider.GetComponentInParent<Code>();
-            if (block != null)
-            {
-                hitBlock = block;
-                break;
-            }
-        }
-
-        if (hitBlock == null)
-        {
-        }
-        else if (!IsConnectable(hitBlock))
-        {
-            Debug.Log($"[CM] Hit non-MoveCode: '{hitBlock.name}' ({hitBlock.GetType().Name})");
-            hitBlock = null;
-        }
+        Code hitBlock = FindConnectableHit(ray);
 
         if (selectedBlock == null)
         {
@@ -398,6 +387,43 @@ public class ConnectionManager : MonoBehaviour
     private bool IsConnectable(Code block)
     {
         return block is MoveCode || block is TurnLeftCode || block is TurnRightCode || block is While || block is WhileEnd || block is BoolCode || block is If || block is Else || block is IfEnd || block is Start;
+    }
+
+    private bool IsLevelPlayActive()
+    {
+        return LevelManager.Instance != null && LevelManager.Instance.IsLevelActive;
+    }
+
+    private bool IsWorkspaceBlock(Code block)
+    {
+        return block != null && block.GetComponent<CodeBlockShelfInstance>() == null;
+    }
+
+    private bool CanConnectBlock(Code block)
+    {
+        return IsLevelPlayActive() && IsWorkspaceBlock(block) && IsConnectable(block);
+    }
+
+    private Code FindConnectableHit(Ray ray)
+    {
+        int hitCount = Physics.RaycastNonAlloc(ray, hitBuffer, maxPreviewDistance, blockLayerMask, QueryTriggerInteraction.Ignore);
+        Code best = null;
+        float bestDistance = float.MaxValue;
+
+        for (int i = 0; i < hitCount; i++)
+        {
+            var block = hitBuffer[i].collider.GetComponentInParent<Code>();
+            if (!CanConnectBlock(block))
+                continue;
+
+            if (hitBuffer[i].distance >= bestDistance)
+                continue;
+
+            bestDistance = hitBuffer[i].distance;
+            best = block;
+        }
+
+        return best;
     }
 
     private void SelectBlock(Code block)
@@ -600,14 +626,21 @@ public class ConnectionManager : MonoBehaviour
         if (!TryGetRay(out Ray ray))
             return;
 
-        Vector3 endPos;
-        if (Physics.Raycast(ray, out RaycastHit hit, maxPreviewDistance, blockLayerMask))
+        Vector3 endPos = ray.GetPoint(maxPreviewDistance);
+        int hitCount = Physics.RaycastNonAlloc(ray, hitBuffer, maxPreviewDistance, blockLayerMask, QueryTriggerInteraction.Ignore);
+        float bestDistance = float.MaxValue;
+
+        for (int i = 0; i < hitCount; i++)
         {
-            endPos = hit.point;
-        }
-        else
-        {
-            endPos = ray.GetPoint(maxPreviewDistance);
+            var block = hitBuffer[i].collider.GetComponentInParent<Code>();
+            if (block != null && !IsWorkspaceBlock(block))
+                continue;
+
+            if (hitBuffer[i].distance >= bestDistance)
+                continue;
+
+            bestDistance = hitBuffer[i].distance;
+            endPos = hitBuffer[i].point;
         }
 
         previewLineRenderer.SetPosition(0, startPos);

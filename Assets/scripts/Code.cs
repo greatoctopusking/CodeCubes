@@ -6,6 +6,12 @@ public abstract class Code : MonoBehaviour
     public Code next = null;
     public event Action OnComplete;
 
+    private static readonly int BaseColorId = Shader.PropertyToID("_BaseColor");
+    private static readonly int ColorId = Shader.PropertyToID("_Color");
+    private static readonly Color HighlightColor = Color.yellow;
+
+    private MaterialPropertyBlock highlightBlock;
+
     public abstract void work();
 
     protected virtual void Awake()
@@ -46,10 +52,31 @@ public abstract class Code : MonoBehaviour
 
     public void SetHighlight(bool active)
     {
-        var renderer = GetComponent<Renderer>();
-        if (renderer == null)
-            renderer = GetComponentInChildren<Renderer>();
-        if (renderer != null) renderer.material.color = active ? Color.yellow : Color.white;
+        var renderers = GetComponentsInChildren<MeshRenderer>(true);
+        if (!active)
+        {
+            for (int i = 0; i < renderers.Length; i++)
+            {
+                if (renderers[i] != null)
+                    renderers[i].SetPropertyBlock(null);
+            }
+            return;
+        }
+
+        if (highlightBlock == null)
+            highlightBlock = new MaterialPropertyBlock();
+
+        for (int i = 0; i < renderers.Length; i++)
+        {
+            var renderer = renderers[i];
+            if (renderer == null)
+                continue;
+
+            renderer.GetPropertyBlock(highlightBlock);
+            highlightBlock.SetColor(BaseColorId, HighlightColor);
+            highlightBlock.SetColor(ColorId, HighlightColor);
+            renderer.SetPropertyBlock(highlightBlock);
+        }
     }
 }
 

@@ -276,7 +276,11 @@ public class CodeManager : MonoBehaviour
             return;
         }
 
-        var errors = CodeValidator.Validate(start);
+        string[] suggested = null;
+        if (inLevel && LevelManager.Instance != null)
+            suggested = LevelManager.Instance.currentLevelData.GetSuggestedBlockNames();
+
+        var errors = CodeValidator.Validate(start, suggested);
         if (errors.Count > 0)
         {
             var msg = string.Join("\n", errors.ConvertAll(e => e.message));

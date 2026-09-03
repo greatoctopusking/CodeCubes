@@ -10,8 +10,16 @@ public class LevelData : ScriptableObject
     public Vector2Int[] starPositions;
 
     [Header("Hints")]
-    [Tooltip("Optional. Shown on the in-level screen until the player runs code. Falls back to LevelBlockHints if empty.")]
+    [Tooltip("Blocks shown on the in-level screen. Only these types can be grabbed from the wall this level. Falls back to LevelBlockHints if empty.")]
     public string[] suggestedBlockNames;
+
+    public string[] GetSuggestedBlockNames()
+    {
+        if (suggestedBlockNames != null && suggestedBlockNames.Length > 0)
+            return suggestedBlockNames;
+
+        return LevelBlockHints.GetForLevel(levelNumber);
+    }
 }
 
 public enum RobotDirection { North, East, South, West }

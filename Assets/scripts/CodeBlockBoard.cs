@@ -94,7 +94,7 @@ public class CodeBlockBoard : MonoBehaviour
 
         foreach (var slot in slots)
         {
-            if (slot == null || !slot.IsEmpty || slot.blockPrefab == null)
+            if (slot == null || !slot.IsEmpty || !slot.IsAvailable || slot.blockPrefab == null)
                 continue;
 
             bool sameType = slot.blockPrefab == poolItem.sourcePrefab ||
@@ -107,6 +107,26 @@ public class CodeBlockBoard : MonoBehaviour
         }
 
         return false;
+    }
+
+    public void ApplyAvailableBlocks(string[] allowedNames)
+    {
+        var enabledCountByName = new Dictionary<string, int>();
+
+        foreach (var slot in slots)
+        {
+            if (slot == null)
+                continue;
+
+            bool typeAllowed = LevelBlockHints.IsAllowed(slot.displayName, allowedNames);
+            enabledCountByName.TryGetValue(slot.displayName ?? string.Empty, out int used);
+            int cap = LevelBlockHints.GetCopyCap(slot.displayName, allowedNames);
+            bool enable = typeAllowed && used < cap;
+
+            slot.SetShelfAvailable(enable);
+            if (enable)
+                enabledCountByName[slot.displayName ?? string.Empty] = used + 1;
+        }
     }
 
     public void ClearWorkspace()

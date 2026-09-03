@@ -17,5 +17,7 @@ MonoBehaviour:
   robotStart: {x: 0, y: 0}
   robotFacing: 1
   starPositions:
-  - {x: 2, y: 0}
-  suggestedBlockNames: []
+  - {x: 1, y: 0}
+  suggestedBlockNames:
+  - Start
+  - MoveForward

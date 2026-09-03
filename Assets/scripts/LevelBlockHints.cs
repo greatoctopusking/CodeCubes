@@ -1,26 +1,109 @@
 public static class LevelBlockHints
 {
+    public static readonly string[] FullToolkit =
+    {
+        "Start", "MoveForward", "TurnLeft", "TurnRight",
+        "While", "WhileEnd", "IF", "IfEnd", "Else",
+        "DetectFrontStar", "DetectLeftStar", "DetectRightStar", "StarRemain"
+    };
+
     public static string[] GetForLevel(int levelNumber)
     {
         return levelNumber switch
         {
             1 => new[] { "Start", "MoveForward" },
-            2 or 3 or 4 => new[] { "Start", "MoveForward", "TurnLeft", "TurnRight" },
-            5 or 6 or 7 or 12 => new[] { "Start", "MoveForward", "TurnLeft", "TurnRight" },
-            8 => new[] { "Start", "MoveForward", "While", "WhileEnd", "StarRemain" },
-            9 => new[] { "Start", "MoveForward", "TurnLeft", "IF", "IfEnd", "DetectLeftStar" },
-            10 => new[] { "Start", "MoveForward", "IF", "IfEnd", "DetectFrontStar", "While", "WhileEnd", "StarRemain" },
-            11 => new[] { "Start", "MoveForward", "TurnLeft", "TurnRight", "IF", "IfEnd", "Else", "DetectLeftStar" },
-            13 => new[] { "Start", "MoveForward", "While", "WhileEnd", "DetectFrontStar" },
-            14 => new[] { "Start", "MoveForward", "While", "WhileEnd", "StarRemain" },
-            15 or 18 => new[] { "Start", "MoveForward", "TurnLeft", "While", "WhileEnd", "DetectFrontStar" },
-            16 or 17 or 19 or 20 => new[]
-            {
-                "Start", "MoveForward", "TurnLeft", "TurnRight",
-                "While", "WhileEnd", "IF", "IfEnd", "Else",
-                "DetectFrontStar", "DetectLeftStar", "DetectRightStar", "StarRemain"
-            },
+            2 => new[] { "Start", "MoveForward", "TurnLeft" },
+            3 or 4 or 5 => new[] { "Start", "MoveForward", "TurnLeft", "TurnRight" },
+            6 => new[] { "Start", "MoveForward", "While", "WhileEnd", "StarRemain" },
+            7 => new[] { "Start", "MoveForward", "TurnLeft", "IF", "IfEnd", "DetectLeftStar" },
+            8 => new[] { "Start", "MoveForward", "While", "WhileEnd", "DetectFrontStar" },
+            9 => new[] { "Start", "MoveForward", "TurnLeft", "While", "WhileEnd", "DetectFrontStar" },
+            10 or 11 or 12 => FullToolkit,
             _ => new[] { "Start", "MoveForward" }
         };
+    }
+
+    public static bool IsAllowed(string displayName, string[] suggested)
+    {
+        if (suggested == null || suggested.Length == 0)
+            return true;
+
+        if (BlockIdentity.NamesMatch(displayName, "Start"))
+            return true;
+
+        for (int i = 0; i < suggested.Length; i++)
+        {
+            if (BlockIdentity.NamesMatch(displayName, suggested[i]))
+                return true;
+        }
+
+        return false;
+    }
+
+    public static int GetCopyCap(string displayName, string[] suggested)
+    {
+        if (suggested == null || suggested.Length == 0)
+            return int.MaxValue;
+
+        if (!HasControlFlow(suggested))
+            return int.MaxValue;
+
+        if (IsMovement(displayName))
+            return IsFullToolkit(suggested) ? 4 : 1;
+
+        if (IsPairedControl(displayName))
+            return 2;
+
+        return 1;
+    }
+
+    public static bool ShouldRequireControlFlow(string[] suggested)
+    {
+        if (suggested == null || suggested.Length == 0)
+            return false;
+
+        if (IsFullToolkit(suggested))
+            return false;
+
+        return HasName(suggested, "IF") || HasName(suggested, "While");
+    }
+
+    public static bool HasName(string[] names, string blockName)
+    {
+        if (names == null)
+            return false;
+
+        for (int i = 0; i < names.Length; i++)
+        {
+            if (BlockIdentity.NamesMatch(names[i], blockName))
+                return true;
+        }
+
+        return false;
+    }
+
+    private static bool HasControlFlow(string[] suggested)
+    {
+        return HasName(suggested, "While") || HasName(suggested, "IF");
+    }
+
+    private static bool IsFullToolkit(string[] suggested)
+    {
+        return HasName(suggested, "IF") && HasName(suggested, "While") && HasName(suggested, "Else");
+    }
+
+    private static bool IsMovement(string displayName)
+    {
+        return BlockIdentity.NamesMatch(displayName, "MoveForward")
+            || BlockIdentity.NamesMatch(displayName, "TurnLeft")
+            || BlockIdentity.NamesMatch(displayName, "TurnRight");
+    }
+
+    private static bool IsPairedControl(string displayName)
+    {
+        return BlockIdentity.NamesMatch(displayName, "While")
+            || BlockIdentity.NamesMatch(displayName, "WhileEnd")
+            || BlockIdentity.NamesMatch(displayName, "IF")
+            || BlockIdentity.NamesMatch(displayName, "IfEnd");
     }
 }

@@ -19,4 +19,9 @@ MonoBehaviour:
   starPositions:
   - {x: 2, y: 0}
   - {x: 2, y: 2}
-  suggestedBlockNames: []
+  - {x: 0, y: 2}
+  suggestedBlockNames:
+  - Start
+  - MoveForward
+  - TurnLeft
+  - TurnRight

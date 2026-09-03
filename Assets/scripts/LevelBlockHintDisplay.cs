@@ -5,7 +5,12 @@ public class LevelBlockHintDisplay : MonoBehaviour
 {
     public static LevelBlockHintDisplay Instance { get; private set; }
 
+    private static readonly Color HintColor = Color.white;
+    private static readonly Color ErrorColor = new Color(1f, 0.82f, 0.28f);
+
     [SerializeField] TMP_Text hintText;
+
+    private LevelData currentData;
 
     private void Awake()
     {
@@ -24,21 +29,42 @@ public class LevelBlockHintDisplay : MonoBehaviour
     {
         if (data == null) return;
 
+        currentData = data;
+        ShowHintList();
+    }
+
+    public void ShowError(string message)
+    {
         EnsureHintText();
         if (hintText == null) return;
 
-        var names = data.suggestedBlockNames;
-        if (names == null || names.Length == 0)
-            names = LevelBlockHints.GetForLevel(data.levelNumber);
-
-        hintText.text = FormatBlockList(names);
+        hintText.color = ErrorColor;
+        hintText.text = string.IsNullOrEmpty(message) ? string.Empty : message;
         hintText.gameObject.SetActive(true);
+    }
+
+    public void RestoreHints()
+    {
+        if (currentData != null)
+            ShowHintList();
+        else
+            Hide();
     }
 
     public void Hide()
     {
         if (hintText != null)
             hintText.gameObject.SetActive(false);
+    }
+
+    private void ShowHintList()
+    {
+        EnsureHintText();
+        if (hintText == null) return;
+
+        hintText.color = HintColor;
+        hintText.text = FormatBlockList(currentData != null ? currentData.GetSuggestedBlockNames() : null);
+        hintText.gameObject.SetActive(true);
     }
 
     private static string FormatBlockList(string[] names)

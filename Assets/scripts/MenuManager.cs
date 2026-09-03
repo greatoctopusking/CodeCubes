@@ -71,12 +71,28 @@ public class MenuManager : MonoBehaviour
 
     public void SetStatus(string msg)
     {
-        if (statusText != null) statusText.text = msg;
+        if (statusText != null)
+            statusText.text = string.Empty;
+
+        if (!string.IsNullOrEmpty(msg) &&
+            levelManager != null &&
+            levelManager.IsLevelActive)
+        {
+            LevelBlockHintDisplay.Instance?.ShowError(msg);
+            return;
+        }
+
+        if (statusText != null)
+            statusText.text = msg ?? string.Empty;
     }
 
     public void ClearStatus()
     {
-        if (statusText != null) statusText.text = "";
+        if (statusText != null)
+            statusText.text = string.Empty;
+
+        if (levelManager != null && levelManager.IsLevelActive)
+            LevelBlockHintDisplay.Instance?.RestoreHints();
     }
 
     private void BindButtons()
@@ -114,6 +130,8 @@ public class MenuManager : MonoBehaviour
 
         var leftColumn = levelButtonContainer.Find("LeftColumn");
         var rightColumn = levelButtonContainer.Find("RightColumn");
+        AlignColumnMiddle(leftColumn);
+        AlignColumnMiddle(rightColumn);
 
         if (leftColumn != null && rightColumn != null)
         {
@@ -133,9 +151,15 @@ public class MenuManager : MonoBehaviour
             for (int i = 0; i < levelManager.levels.Count; i++)
             {
                 var level = levelManager.levels[i];
+                if (level == null)
+                    continue;
+
                 Transform parent = levelButtonContainer;
                 if (leftColumn != null && rightColumn != null)
-                    parent = i < 10 ? leftColumn : rightColumn;
+                {
+                    int perColumn = (levelManager.levels.Count + 1) / 2;
+                    parent = i < perColumn ? leftColumn : rightColumn;
+                }
 
                 var btnObj = Instantiate(levelButtonPrefab, parent);
                 var text = btnObj.GetComponentInChildren<TMP_Text>();
@@ -148,6 +172,19 @@ public class MenuManager : MonoBehaviour
                 }
             }
         }
+
+        if (levelButtonContainer is RectTransform containerRt)
+            LayoutRebuilder.ForceRebuildLayoutImmediate(containerRt);
+    }
+
+    private static void AlignColumnMiddle(Transform column)
+    {
+        if (column == null)
+            return;
+
+        var layout = column.GetComponent<VerticalLayoutGroup>();
+        if (layout != null)
+            layout.childAlignment = TextAnchor.MiddleCenter;
     }
 
     public void ShowInLevel()
@@ -246,6 +283,10 @@ public class MenuManager : MonoBehaviour
     {
         AudioManager.Instance?.Play(SoundId.UiClick);
         pendingLevelIndex = levelManager.currentLevelIndex + 1;
+        while (pendingLevelIndex < levelManager.levels.Count &&
+               levelManager.levels[pendingLevelIndex] == null)
+            pendingLevelIndex++;
+
         if (pendingLevelIndex >= levelManager.levels.Count)
         {
             ShowLevelSelect();

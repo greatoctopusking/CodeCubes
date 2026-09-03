@@ -42,6 +42,19 @@ public class LevelManager : MonoBehaviour
         facingIndicator = GetComponent<RobotFacingIndicator>();
         if (facingIndicator == null)
             facingIndicator = gameObject.AddComponent<RobotFacingIndicator>();
+        SanitizeLevels();
+    }
+
+    private void SanitizeLevels()
+    {
+        if (levels == null)
+        {
+            levels = new List<LevelData>();
+            return;
+        }
+
+        levels.RemoveAll(level => level == null);
+        levels.Sort((a, b) => a.levelNumber.CompareTo(b.levelNumber));
     }
 
     private void Start()
@@ -67,6 +80,9 @@ public class LevelManager : MonoBehaviour
     {
         if (index < 0 || index >= levels.Count) return;
 
+        var data = levels[index];
+        if (data == null) return;
+
         if (codeManager != null && codeManager.IsExecuting)
             codeManager.StopExecution();
 
@@ -78,13 +94,13 @@ public class LevelManager : MonoBehaviour
         HasStartedThisAttempt = false;
         IsLevelResolved = false;
 
-        var data = levels[index];
         var size = gridSize.x > 0 && gridSize.y > 0 ? gridSize : data.gridSize;
 
         GenerateGrid(size);
         SpawnStars(data, size);
         PlaceRobot(data, size);
         CodeBlockBoard.Instance?.PlaceUniqueStartOnGround();
+        CodeBlockBoard.Instance?.ApplyAvailableBlocks(data.GetSuggestedBlockNames());
         levelActive = true;
         facingIndicator?.Show();
         LevelBlockHintDisplay.Instance?.Show(data);
@@ -106,6 +122,7 @@ public class LevelManager : MonoBehaviour
         if (codeManager != null && codeManager.IsExecuting)
             codeManager.StopExecution();
         CodeBlockBoard.Instance?.ClearWorkspace();
+        CodeBlockBoard.Instance?.ApplyAvailableBlocks(null);
         ClearLevel();
         GeneratePlayground();
     }

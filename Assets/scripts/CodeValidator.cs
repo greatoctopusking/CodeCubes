@@ -7,7 +7,7 @@ public static class CodeValidator
         public string message;
     }
 
-    public static List<Error> Validate(Start startBlock)
+    public static List<Error> Validate(Start startBlock, string[] suggestedBlockNames = null)
     {
         var errors = new List<Error>();
         if (startBlock == null) return errors;
@@ -18,6 +18,7 @@ public static class CodeValidator
         DetectStructureMismatch(startBlock, errors);
         DetectExtraElse(startBlock, errors);
         DetectMissingJudger(startBlock, errors);
+        DetectMissingRequiredStructures(startBlock, suggestedBlockNames, errors);
 
         return errors;
     }
@@ -124,5 +125,35 @@ public static class CodeValidator
                 errors.Add(new Error { message = $"While '{whileBlock.name}' missing condition" });
             cur = cur.next;
         }
+    }
+
+    private static void DetectMissingRequiredStructures(Start start, string[] suggested, List<Error> errors)
+    {
+        if (!LevelBlockHints.ShouldRequireControlFlow(suggested))
+            return;
+
+        bool needIf = LevelBlockHints.HasName(suggested, "IF");
+        bool needWhile = LevelBlockHints.HasName(suggested, "While");
+        bool needElse = LevelBlockHints.HasName(suggested, "Else");
+
+        bool hasIf = false;
+        bool hasWhile = false;
+        bool hasElse = false;
+        Code cur = start;
+
+        while (cur != null)
+        {
+            if (cur is If) hasIf = true;
+            else if (cur is While) hasWhile = true;
+            else if (cur is Else) hasElse = true;
+            cur = cur.next;
+        }
+
+        if (needIf && !hasIf)
+            errors.Add(new Error { message = "This level requires an IF block." });
+        if (needWhile && !hasWhile)
+            errors.Add(new Error { message = "This level requires a While block." });
+        if (needElse && !hasElse)
+            errors.Add(new Error { message = "This level requires an Else block." });
     }
 }

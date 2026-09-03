@@ -2493,7 +2493,7 @@ MonoBehaviour:
     m_Right: 0
     m_Top: 0
     m_Bottom: 0
-  m_ChildAlignment: 1
+  m_ChildAlignment: 4
   m_Spacing: 8
   m_ChildForceExpandWidth: 1
   m_ChildForceExpandHeight: 0
@@ -2576,7 +2576,7 @@ MonoBehaviour:
     m_Right: 0
     m_Top: 0
     m_Bottom: 0
-  m_ChildAlignment: 1
+  m_ChildAlignment: 4
   m_Spacing: 8
   m_ChildForceExpandWidth: 1
   m_ChildForceExpandHeight: 0
@@ -8104,7 +8104,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 1717954561962503726, guid: f6336ac4ac8b4d34bc5072418cdc62a0, type: 3}
       propertyPath: m_LocalPosition.x
-      value: 0.993
+      value: 0.018
       objectReference: {fileID: 0}
     - target: {fileID: 1717954561962503726, guid: f6336ac4ac8b4d34bc5072418cdc62a0, type: 3}
       propertyPath: m_LocalPosition.y
@@ -8112,7 +8112,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 1717954561962503726, guid: f6336ac4ac8b4d34bc5072418cdc62a0, type: 3}
       propertyPath: m_LocalPosition.z
-      value: 7.211
+      value: 7.448
       objectReference: {fileID: 0}
     - target: {fileID: 1717954561962503726, guid: f6336ac4ac8b4d34bc5072418cdc62a0, type: 3}
       propertyPath: m_LocalRotation.w
@@ -16787,22 +16787,14 @@ MonoBehaviour:
   - {fileID: 11400000, guid: 8b67f670ae32953418ebb34b467de538, type: 2}
   - {fileID: 11400000, guid: 96391a13b4d92954ab046dbb15356851, type: 2}
   - {fileID: 11400000, guid: de847ddf93ae8124c8a700ac22024bca, type: 2}
-  - {fileID: 11400000, guid: 4b7a694409dbe8a448c7ce81dfcd1dc6, type: 2}
+  - {fileID: 11400000, guid: b48da28aa30e81347ad8e15370160ade, type: 2}
   - {fileID: 11400000, guid: e9da0866f51a8324cacfa80eef1e9251, type: 2}
   - {fileID: 11400000, guid: 312a76030b0e6f44481bfd66f5afc156, type: 2}
-  - {fileID: 11400000, guid: 4c0b3d02a84f02647843d8dd9b950692, type: 2}
-  - {fileID: 11400000, guid: 0e7c5ee33b8681942a344f8eeaf5cce5, type: 2}
   - {fileID: 11400000, guid: 7c33fc8b870ce2546bab8be03ceb2ece, type: 2}
   - {fileID: 11400000, guid: 49c1b55690f8a6d4e9ebb157ba3ba0f3, type: 2}
-  - {fileID: 11400000, guid: 76cee2f951e967144917f23017413f1b, type: 2}
-  - {fileID: 11400000, guid: 7c3acf181884f38458be98095f301f75, type: 2}
-  - {fileID: 11400000, guid: 99372beda3b402c4fbc4f8807c732fc9, type: 2}
-  - {fileID: 11400000, guid: 02f7bf956aec83a418bdbad7f9a42efa, type: 2}
   - {fileID: 11400000, guid: c44204dad858b9b40b98b4cad89315df, type: 2}
   - {fileID: 11400000, guid: 4b0eeb4f439da3b439ea37cfd1e0b662, type: 2}
   - {fileID: 11400000, guid: 7a8deb6700d5f484b9ec704c4525b490, type: 2}
-  - {fileID: 11400000, guid: 41324183842d1ec40a4e2ec38bfabde9, type: 2}
-  - {fileID: 11400000, guid: 5288734f6ec9bee41987aa8a687e7c7b, type: 2}
   - {fileID: 11400000, guid: f8121b40ab24f7841bef1432f888aa23, type: 2}
   gridTileLightPrefab: {fileID: 5138672873044909905, guid: 63d87d4a15c826943807e2866180ab11, type: 3}
   gridTileDarkPrefab: {fileID: 5138672873044909905, guid: 4a5403974825946478cc69dae6ac8efc, type: 3}

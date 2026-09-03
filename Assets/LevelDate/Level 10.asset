@@ -19,4 +19,23 @@ MonoBehaviour:
   starPositions:
   - {x: 1, y: 0}
   - {x: 2, y: 0}
-  suggestedBlockNames: []
+  - {x: 2, y: 1}
+  - {x: 3, y: 1}
+  - {x: 3, y: 2}
+  - {x: 4, y: 2}
+  - {x: 4, y: 3}
+  - {x: 5, y: 3}
+  suggestedBlockNames:
+  - Start
+  - MoveForward
+  - TurnLeft
+  - TurnRight
+  - While
+  - WhileEnd
+  - IF
+  - IfEnd
+  - Else
+  - DetectFrontStar
+  - DetectLeftStar
+  - DetectRightStar
+  - StarRemain

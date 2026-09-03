@@ -298,11 +298,15 @@ public class ConnectionManager : MonoBehaviour
             {
                 Debug.Log($"[CM] Connect Judger '{whileBlock.name}' <- '{boolBlock.name}'");
                 ConnectJudger(whileBlock, boolBlock);
+                MenuManager.Instance?.ClearStatus();
                 AudioManager.Instance?.Play(SoundId.BlockConnect, whileBlock.transform.position);
             }
             else
             {
+                const string msg = "That condition block is already connected.";
                 Debug.Log($"[CM] Judger reject: '{boolBlock.name}' already someone's Judger");
+                MenuManager.Instance?.SetStatus(msg);
+                AudioManager.Instance?.Play(SoundId.ValidationFail);
             }
             DeselectBlock();
         }
@@ -318,11 +322,15 @@ public class ConnectionManager : MonoBehaviour
             {
                 Debug.Log($"[CM] Connect Judger '{ifBlock.name}' <- '{boolBlock2.name}'");
                 ConnectJudger(ifBlock, boolBlock2);
+                MenuManager.Instance?.ClearStatus();
                 AudioManager.Instance?.Play(SoundId.BlockConnect, ifBlock.transform.position);
             }
             else
             {
+                const string msg = "That condition block is already connected.";
                 Debug.Log($"[CM] Judger reject: '{boolBlock2.name}' already someone's Judger");
+                MenuManager.Instance?.SetStatus(msg);
+                AudioManager.Instance?.Play(SoundId.ValidationFail);
             }
             DeselectBlock();
         }
@@ -350,15 +358,17 @@ public class ConnectionManager : MonoBehaviour
         {
             if (hitBlock != null && hitBlock != selectedBlock)
             {
-                if (TryConnect(selectedBlock, hitBlock))
+                if (TryConnect(selectedBlock, hitBlock, out string rejectReason))
                 {
                     Debug.Log($"[CM] Connect '{selectedBlock.name}' -> '{hitBlock.name}'");
                     Connect(selectedBlock, hitBlock);
+                    MenuManager.Instance?.ClearStatus();
                     AudioManager.Instance?.Play(SoundId.BlockConnect, selectedBlock.transform.position);
                 }
                 else
                 {
-                    Debug.Log($"[CM] Rejected '{selectedBlock.name}' -> '{hitBlock.name}'");
+                    Debug.Log($"[CM] Rejected '{selectedBlock.name}' -> '{hitBlock.name}': {rejectReason}");
+                    MenuManager.Instance?.SetStatus(rejectReason);
                     AudioManager.Instance?.Play(SoundId.ValidationFail);
                 }
                 DeselectBlock();
@@ -452,11 +462,27 @@ public class ConnectionManager : MonoBehaviour
         }
     }
 
-    private bool TryConnect(Code from, Code to)
+    private bool TryConnect(Code from, Code to, out string reason)
     {
-        if (from == to) return false;
-        if (WouldCreateCycle(from, to)) return false;
-        if (IsAnyonesNext(to, exceptFrom: from)) return false;
+        reason = null;
+        if (from == to)
+        {
+            reason = "Cannot connect a block to itself.";
+            return false;
+        }
+
+        if (WouldCreateCycle(from, to))
+        {
+            reason = "That connection would create a cycle.";
+            return false;
+        }
+
+        if (IsAnyonesNext(to, exceptFrom: from))
+        {
+            reason = "That block already has an incoming connection.";
+            return false;
+        }
+
         return true;
     }
 

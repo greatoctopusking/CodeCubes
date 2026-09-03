@@ -12,8 +12,10 @@ public class CodeBlockSlot : MonoBehaviour
 
     private GameObject shelfBlock;
     private Vector3 shelfLocalScale = Vector3.one;
+    private bool available = true;
 
     public bool IsEmpty => shelfBlock == null;
+    public bool IsAvailable => available;
 
     public void RegisterPlacedBlock(GameObject block)
     {
@@ -34,6 +36,7 @@ public class CodeBlockSlot : MonoBehaviour
         shelfLocalScale = block.transform.localScale;
         ApplyShelfState(block);
         BindGrabListener(block);
+        ApplyAvailabilityVisual();
     }
 
     public bool PlaceBlock(GameObject block)
@@ -53,7 +56,40 @@ public class CodeBlockSlot : MonoBehaviour
 
         ApplyShelfState(block);
         BindGrabListener(block);
+        ApplyAvailabilityVisual();
         return true;
+    }
+
+    public void SetShelfAvailable(bool value)
+    {
+        available = value;
+        ApplyAvailabilityVisual();
+    }
+
+    private void ApplyAvailabilityVisual()
+    {
+        if (shelfBlock == null)
+            return;
+
+        if (available)
+        {
+            if (!shelfBlock.activeSelf)
+                shelfBlock.SetActive(true);
+            SetGrabEnabled(shelfBlock, true);
+        }
+        else
+        {
+            SetGrabEnabled(shelfBlock, false);
+            if (shelfBlock.activeSelf)
+                shelfBlock.SetActive(false);
+        }
+    }
+
+    private static void SetGrabEnabled(GameObject block, bool enabled)
+    {
+        var grab = block.GetComponent<XRGrabInteractable>();
+        if (grab != null)
+            grab.enabled = enabled;
     }
 
     private void ApplyShelfState(GameObject block)
@@ -103,7 +139,10 @@ public class CodeBlockSlot : MonoBehaviour
 
         var grab = block.GetComponent<XRGrabInteractable>();
         if (grab != null)
+        {
             grab.selectEntered.RemoveListener(OnShelfBlockGrabbed);
+            grab.enabled = true;
+        }
 
         var shelfMarker = block.GetComponent<CodeBlockShelfInstance>();
         if (shelfMarker != null)

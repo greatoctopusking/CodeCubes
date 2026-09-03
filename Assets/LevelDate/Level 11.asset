@@ -14,7 +14,24 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   levelNumber: 11
   gridSize: {x: 10, y: 10}
-  robotStart: {x: 2, y: 0}
-  robotFacing: 0
+  robotStart: {x: 0, y: 0}
+  robotFacing: 1
   starPositions:
-  - {x: 1, y: 0}
+  - {x: 4, y: 0}
+  - {x: 4, y: 4}
+  - {x: 0, y: 4}
+  - {x: 0, y: 1}
+  suggestedBlockNames:
+  - Start
+  - MoveForward
+  - TurnLeft
+  - TurnRight
+  - While
+  - WhileEnd
+  - IF
+  - IfEnd
+  - Else
+  - DetectFrontStar
+  - DetectLeftStar
+  - DetectRightStar
+  - StarRemain

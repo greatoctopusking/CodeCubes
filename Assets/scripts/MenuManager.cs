@@ -37,6 +37,11 @@ public class MenuManager : MonoBehaviour
     private LevelManager levelManager;
     private int pendingLevelIndex;
     private LevelBlockHintDisplay blockHintDisplay;
+    private bool completeTextLayoutCached;
+    private Vector2 completeTextDefaultPos;
+    private Vector2 completeTextDefaultSize;
+    private float completeTextDefaultFontSize;
+    private Vector4 completeTextDefaultMargin;
 
     private void Start()
     {
@@ -199,17 +204,47 @@ public class MenuManager : MonoBehaviour
     {
         HideAll();
         if (levelCompletePanel != null) levelCompletePanel.SetActive(true);
+
+        bool isLast = levelManager != null && levelManager.IsLastLevel;
         if (completeLevelNameText != null)
-            completeLevelNameText.text = $"Level {levelManager.currentLevelData.levelNumber} Complete!";
+        {
+            CacheCompleteTextLayout();
+            completeLevelNameText.enableWordWrapping = true;
+            completeLevelNameText.alignment = TextAlignmentOptions.Center;
+            if (isLast)
+            {
+                completeLevelNameText.text = "Congratulations!\nYou've finished all the levels.";
+                completeLevelNameText.fontSize = 40f;
+                completeLevelNameText.margin = Vector4.zero;
+                var rt = completeLevelNameText.rectTransform;
+                rt.anchoredPosition = new Vector2(396f, -140f);
+                rt.sizeDelta = new Vector2(560f, 160f);
+            }
+            else
+            {
+                RestoreCompleteTextLayout();
+                completeLevelNameText.text = $"Level {levelManager.currentLevelData.levelNumber} Complete!";
+            }
+        }
+
+        if (nextButton != null)
+            nextButton.gameObject.SetActive(!isLast);
+
         AudioManager.Instance?.Play(SoundId.LevelComplete);
     }
 
-    public void ShowLevelFailed()
+    public void ShowLevelFailed(string reason = null)
     {
         HideAll();
         if (levelFailedPanel != null) levelFailedPanel.SetActive(true);
         if (failedLevelNameText != null)
-            failedLevelNameText.text = $"Level {levelManager.currentLevelData.levelNumber}";
+        {
+            var levelName = $"Level {levelManager.currentLevelData.levelNumber}";
+            failedLevelNameText.enableWordWrapping = !string.IsNullOrEmpty(reason);
+            failedLevelNameText.text = string.IsNullOrEmpty(reason)
+                ? levelName
+                : $"{levelName}\n{reason}";
+        }
         SetButtonLabel(failRetryButton, "Retry");
         SetButtonLabel(failLeaveButton, "Leave");
         LayoutFailOptionsCentered();
@@ -231,9 +266,9 @@ public class MenuManager : MonoBehaviour
         {
             failedLevelNameText.transform.SetSiblingIndex(0);
             failedLevelNameText.alignment = TextAlignmentOptions.Center;
-            failedLevelNameText.enableWordWrapping = false;
+            failedLevelNameText.enableWordWrapping = true;
             failedLevelNameText.margin = Vector4.zero;
-            PlaceFailItem(failedLevelNameText.rectTransform, -120f, new Vector2(480f, 80f));
+            PlaceFailItem(failedLevelNameText.rectTransform, -140f, new Vector2(560f, 140f));
         }
 
         if (failRetryButton != null)
@@ -258,6 +293,31 @@ public class MenuManager : MonoBehaviour
         rt.anchoredPosition = new Vector2(396f, y);
         rt.sizeDelta = size;
         rt.localScale = Vector3.one;
+    }
+
+    private void CacheCompleteTextLayout()
+    {
+        if (completeTextLayoutCached || completeLevelNameText == null)
+            return;
+
+        var rt = completeLevelNameText.rectTransform;
+        completeTextDefaultPos = rt.anchoredPosition;
+        completeTextDefaultSize = rt.sizeDelta;
+        completeTextDefaultFontSize = completeLevelNameText.fontSize;
+        completeTextDefaultMargin = completeLevelNameText.margin;
+        completeTextLayoutCached = true;
+    }
+
+    private void RestoreCompleteTextLayout()
+    {
+        if (!completeTextLayoutCached || completeLevelNameText == null)
+            return;
+
+        var rt = completeLevelNameText.rectTransform;
+        rt.anchoredPosition = completeTextDefaultPos;
+        rt.sizeDelta = completeTextDefaultSize;
+        completeLevelNameText.fontSize = completeTextDefaultFontSize;
+        completeLevelNameText.margin = completeTextDefaultMargin;
     }
 
     private void UpdateLevelName()

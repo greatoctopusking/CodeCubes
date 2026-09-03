@@ -48,10 +48,24 @@ public static class LevelBlockHints
         if (!HasControlFlow(suggested))
             return int.MaxValue;
 
+        bool twoWhileSegments = !IsFullToolkit(suggested)
+            && HasName(suggested, "While")
+            && (HasName(suggested, "TurnLeft") || HasName(suggested, "TurnRight"));
+
         if (IsMovement(displayName))
-            return IsFullToolkit(suggested) ? 4 : 1;
+        {
+            if (IsFullToolkit(suggested))
+                return 4;
+            return twoWhileSegments ? 2 : 1;
+        }
 
         if (IsPairedControl(displayName))
+            return 2;
+
+        if (BlockIdentity.NamesMatch(displayName, "Else"))
+            return 2;
+
+        if (twoWhileSegments && BlockIdentity.NamesMatch(displayName, "DetectFrontStar"))
             return 2;
 
         return 1;

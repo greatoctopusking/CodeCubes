@@ -11,6 +11,9 @@ public class CodeManager : MonoBehaviour
 
     private Coroutine playRoutine = null;
     private Stack<While> loopStack = new Stack<While>();
+    private string runAbortReason;
+
+    private const int MaxExecutionSteps = 8000;
 
     private bool wasLeftTriggerPressed = false;
 
@@ -81,8 +84,20 @@ public class CodeManager : MonoBehaviour
             yield break;
         }
 
+        runAbortReason = null;
+        var seenStates = new HashSet<string>();
+        int steps = 0;
+
         while (cur != null)
         {
+            if (IsInfiniteLoop(cur, seenStates, ref steps))
+            {
+                runAbortReason = "Infinite loop detected. The robot is not making progress.";
+                MenuManager.Instance?.SetStatus(runAbortReason);
+                Debug.LogWarning($"[CM] {runAbortReason}");
+                break;
+            }
+
             bool completed = false;
             System.Action handler = () => completed = true;
 
@@ -206,8 +221,37 @@ public class CodeManager : MonoBehaviour
     private void FinishPlayRoutine()
     {
         playRoutine = null;
+        string abortReason = runAbortReason;
+        runAbortReason = null;
         if (LevelManager.Instance != null && LevelManager.Instance.IsLevelActive)
-            LevelManager.Instance.OnRunFinished();
+            LevelManager.Instance.OnRunFinished(abortReason);
+    }
+
+    private static bool IsInfiniteLoop(Code block, HashSet<string> seenStates, ref int steps)
+    {
+        steps++;
+        if (steps > MaxExecutionSteps)
+            return true;
+
+        return !seenStates.Add(ExecutionStateKey(block));
+    }
+
+    private static string ExecutionStateKey(Code block)
+    {
+        var target = RobotTarget;
+        int qx = 0;
+        int qz = 0;
+        int facing = 0;
+        if (target != null)
+        {
+            qx = Mathf.RoundToInt(target.position.x * 20f);
+            qz = Mathf.RoundToInt(target.position.z * 20f);
+            facing = Mathf.RoundToInt(Mathf.Repeat(target.eulerAngles.y, 360f) / 90f) % 4;
+        }
+
+        int stars = LevelManager.Instance != null ? LevelManager.Instance.nextStarIndex : 0;
+        int id = block != null ? block.GetInstanceID() : 0;
+        return $"{id}|{qx}|{qz}|{facing}|{stars}";
     }
 
     void Update()
@@ -246,6 +290,7 @@ public class CodeManager : MonoBehaviour
                 RobotAnimator.SetBool("Open_Anim", false);
             }
             loopStack.Clear();
+            runAbortReason = null;
         }
     }
 

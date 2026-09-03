@@ -25,6 +25,8 @@ public class LevelManager : MonoBehaviour
     public int currentLevelIndex { get; private set; }
     public LevelData currentLevelData => levels[currentLevelIndex];
     public bool IsLevelActive => levelActive;
+    public bool IsLastLevel =>
+        levels != null && levels.Count > 0 && currentLevelIndex == levels.Count - 1;
     public bool HasStartedThisAttempt { get; private set; }
     public bool IsLevelResolved { get; private set; }
 
@@ -133,7 +135,7 @@ public class LevelManager : MonoBehaviour
         HasStartedThisAttempt = true;
     }
 
-    public void OnRunFinished()
+    public void OnRunFinished(string failReason = null)
     {
         if (!levelActive || IsLevelResolved) return;
 
@@ -141,7 +143,7 @@ public class LevelManager : MonoBehaviour
         if (AllStarsCollected())
             menu?.ShowLevelComplete();
         else
-            menu?.ShowLevelFailed();
+            menu?.ShowLevelFailed(failReason);
     }
 
     public bool IsWithinGrid(Vector3 worldPos)

@@ -35,7 +35,7 @@ public class CodeBlockBoard : MonoBehaviour
     public Transform startBlockSpawnPoint;
 
     [Tooltip("Used when Start Block Spawn Point is empty. Place the unique Start on the floor near the board.")]
-    public Vector3 startBlockGroundPosition = new Vector3(1.95f, 0.4f, 6.9f);
+    public Vector3 startBlockGroundPosition = new Vector3(1.95f, 0.55f, 6.9f);
 
     private readonly List<CodeBlockSlot> slots = new List<CodeBlockSlot>();
     private readonly Dictionary<string, WallStackTemplate> wallStacks = new Dictionary<string, WallStackTemplate>();
@@ -203,6 +203,9 @@ public class CodeBlockBoard : MonoBehaviour
         {
             keep.transform.localScale = startWorkspaceScale;
         }
+
+        LiftStartAboveGround(keep);
+        FitStartColliderToVisual(keep);
 
         var rb = keep.GetComponent<Rigidbody>();
         if (rb != null)
@@ -772,6 +775,112 @@ public class CodeBlockBoard : MonoBehaviour
             return startBlockGroundPosition;
 
         return new Vector3(transform.position.x, 0.4f, transform.position.z) + transform.forward * 0.8f;
+    }
+
+    private static void LiftStartAboveGround(Start start)
+    {
+        if (start == null)
+            return;
+
+        var renderers = start.GetComponentsInChildren<Renderer>();
+        if (renderers == null || renderers.Length == 0)
+            return;
+
+        Renderer first = null;
+        for (int i = 0; i < renderers.Length; i++)
+        {
+            if (renderers[i] != null)
+            {
+                first = renderers[i];
+                break;
+            }
+        }
+
+        if (first == null)
+            return;
+
+        Bounds bounds = first.bounds;
+        for (int i = 0; i < renderers.Length; i++)
+        {
+            if (renderers[i] != null)
+                bounds.Encapsulate(renderers[i].bounds);
+        }
+
+        const float clearance = 0.05f;
+        float targetBottomY = start.transform.position.y + clearance;
+        float lift = targetBottomY - bounds.min.y;
+        if (lift > 0.001f)
+            start.transform.position += Vector3.up * lift;
+    }
+
+    private static void FitStartColliderToVisual(Start start)
+    {
+        if (start == null)
+            return;
+
+        var box = start.GetComponent<BoxCollider>();
+        if (box == null)
+            return;
+
+        var renderers = start.GetComponentsInChildren<Renderer>();
+        if (renderers == null || renderers.Length == 0)
+            return;
+
+        Renderer first = null;
+        for (int i = 0; i < renderers.Length; i++)
+        {
+            if (renderers[i] != null)
+            {
+                first = renderers[i];
+                break;
+            }
+        }
+
+        if (first == null)
+            return;
+
+        Bounds world = first.bounds;
+        for (int i = 0; i < renderers.Length; i++)
+        {
+            if (renderers[i] != null)
+                world.Encapsulate(renderers[i].bounds);
+        }
+
+        Transform t = start.transform;
+        Vector3 min = world.min;
+        Vector3 max = world.max;
+        Bounds local = new Bounds();
+        bool hasPoint = false;
+
+        for (int x = 0; x < 2; x++)
+        {
+            for (int y = 0; y < 2; y++)
+            {
+                for (int z = 0; z < 2; z++)
+                {
+                    var corner = new Vector3(
+                        x == 0 ? min.x : max.x,
+                        y == 0 ? min.y : max.y,
+                        z == 0 ? min.z : max.z);
+                    Vector3 localPoint = t.InverseTransformPoint(corner);
+                    if (!hasPoint)
+                    {
+                        local = new Bounds(localPoint, Vector3.zero);
+                        hasPoint = true;
+                    }
+                    else
+                    {
+                        local.Encapsulate(localPoint);
+                    }
+                }
+            }
+        }
+
+        if (!hasPoint)
+            return;
+
+        box.center = local.center;
+        box.size = local.size;
     }
 
     private static void DestroyBlock(GameObject block)

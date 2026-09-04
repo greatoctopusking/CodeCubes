@@ -6331,7 +6331,7 @@ MonoBehaviour:
   boardColor: {r: 0.18, g: 0.22, b: 0.16, a: 1}
   frameColor: {r: 0.35, g: 0.28, b: 0.18, a: 1}
   startBlockSpawnPoint: {fileID: 0}
-  startBlockGroundPosition: {x: 1.5, y: 2, z: 8}
+  startBlockGroundPosition: {x: 1.5, y: 2.25, z: 8}
 --- !u!1 &590150337 stripped
 GameObject:
   m_CorrespondingSourceObject: {fileID: 919132149155446097, guid: 6d1392704f882a842a2d577ca425463f, type: 3}
@@ -8092,7 +8092,11 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1680501587, guid: f6336ac4ac8b4d34bc5072418cdc62a0, type: 3}
       propertyPath: m_LocalPosition.y
-      value: 2
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 1767192434, guid: f6336ac4ac8b4d34bc5072418cdc62a0, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: 1.4
       objectReference: {fileID: 0}
     - target: {fileID: 1178791450436251564, guid: f6336ac4ac8b4d34bc5072418cdc62a0, type: 3}
       propertyPath: m_CameraYOffset
@@ -8104,11 +8108,11 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 1717954561962503726, guid: f6336ac4ac8b4d34bc5072418cdc62a0, type: 3}
       propertyPath: m_LocalPosition.x
-      value: 0.018
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 1717954561962503726, guid: f6336ac4ac8b4d34bc5072418cdc62a0, type: 3}
       propertyPath: m_LocalPosition.y
-      value: -1.077
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 1717954561962503726, guid: f6336ac4ac8b4d34bc5072418cdc62a0, type: 3}
       propertyPath: m_LocalPosition.z
@@ -16788,8 +16792,8 @@ MonoBehaviour:
   - {fileID: 11400000, guid: 96391a13b4d92954ab046dbb15356851, type: 2}
   - {fileID: 11400000, guid: de847ddf93ae8124c8a700ac22024bca, type: 2}
   - {fileID: 11400000, guid: b48da28aa30e81347ad8e15370160ade, type: 2}
-  - {fileID: 11400000, guid: e9da0866f51a8324cacfa80eef1e9251, type: 2}
   - {fileID: 11400000, guid: 312a76030b0e6f44481bfd66f5afc156, type: 2}
+  - {fileID: 11400000, guid: 0e7c5ee33b8681942a344f8eeaf5cce5, type: 2}
   - {fileID: 11400000, guid: 7c33fc8b870ce2546bab8be03ceb2ece, type: 2}
   - {fileID: 11400000, guid: 49c1b55690f8a6d4e9ebb157ba3ba0f3, type: 2}
   - {fileID: 11400000, guid: c44204dad858b9b40b98b4cad89315df, type: 2}

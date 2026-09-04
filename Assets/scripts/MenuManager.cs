@@ -34,6 +34,8 @@ public class MenuManager : MonoBehaviour
     public Button failRetryButton;
     public Button failLeaveButton;
 
+    private Button failRetryKeepButton;
+    private Button failRetryClearButton;
     private LevelManager levelManager;
     private int pendingLevelIndex;
     private LevelBlockHintDisplay blockHintDisplay;
@@ -106,7 +108,9 @@ public class MenuManager : MonoBehaviour
         if (leaveButton != null) leaveButton.onClick.AddListener(OnLeaveClicked);
         if (nextButton != null) nextButton.onClick.AddListener(OnNextClicked);
         if (completeLeaveButton != null) completeLeaveButton.onClick.AddListener(OnLeaveClicked);
-        if (failRetryButton != null) failRetryButton.onClick.AddListener(OnRetryClicked);
+        EnsureFailRetryButtons();
+        if (failRetryKeepButton != null) failRetryKeepButton.onClick.AddListener(OnRetryKeepClicked);
+        if (failRetryClearButton != null) failRetryClearButton.onClick.AddListener(OnRetryClearClicked);
         if (failLeaveButton != null) failLeaveButton.onClick.AddListener(OnLeaveClicked);
     }
 
@@ -245,17 +249,39 @@ public class MenuManager : MonoBehaviour
                 ? levelName
                 : $"{levelName}\n{reason}";
         }
-        SetButtonLabel(failRetryButton, "Retry");
+        SetButtonLabel(failRetryKeepButton, "Retry (Keep)");
+        SetButtonLabel(failRetryClearButton, "Retry (Clear)");
         SetButtonLabel(failLeaveButton, "Leave");
         LayoutFailOptionsCentered();
         AudioManager.Instance?.Play(SoundId.LevelFail);
+    }
+
+    private void EnsureFailRetryButtons()
+    {
+        if (failRetryButton == null || failRetryClearButton != null)
+            return;
+
+        failRetryKeepButton = failRetryButton;
+        failRetryKeepButton.gameObject.name = "RetryKeep";
+
+        var clone = Instantiate(failRetryButton.gameObject, failRetryButton.transform.parent);
+        clone.name = "RetryClear";
+        failRetryClearButton = clone.GetComponent<Button>();
+        failRetryClearButton.onClick.RemoveAllListeners();
     }
 
     private static void SetButtonLabel(Button button, string label)
     {
         if (button == null) return;
         var text = button.GetComponentInChildren<TMP_Text>();
-        if (text != null) text.text = label;
+        if (text == null) return;
+
+        text.text = label;
+        text.enableWordWrapping = false;
+        text.overflowMode = TextOverflowModes.Overflow;
+        text.enableAutoSizing = true;
+        text.fontSizeMin = 14f;
+        text.fontSizeMax = 24f;
     }
 
     private void LayoutFailOptionsCentered()
@@ -271,15 +297,21 @@ public class MenuManager : MonoBehaviour
             PlaceFailItem(failedLevelNameText.rectTransform, -140f, new Vector2(560f, 140f));
         }
 
-        if (failRetryButton != null)
+        if (failRetryKeepButton != null)
         {
-            failRetryButton.transform.SetSiblingIndex(1);
-            PlaceFailItem(failRetryButton.GetComponent<RectTransform>(), -250f, new Vector2(200f, 40f));
+            failRetryKeepButton.transform.SetSiblingIndex(1);
+            PlaceFailItem(failRetryKeepButton.GetComponent<RectTransform>(), -230f, new Vector2(260f, 40f));
+        }
+
+        if (failRetryClearButton != null)
+        {
+            failRetryClearButton.transform.SetSiblingIndex(2);
+            PlaceFailItem(failRetryClearButton.GetComponent<RectTransform>(), -278f, new Vector2(260f, 40f));
         }
 
         if (failLeaveButton != null)
         {
-            failLeaveButton.transform.SetSiblingIndex(2);
+            failLeaveButton.transform.SetSiblingIndex(3);
             PlaceFailItem(failLeaveButton.GetComponent<RectTransform>(), -360f, new Vector2(200f, 40f));
         }
     }
@@ -356,10 +388,20 @@ public class MenuManager : MonoBehaviour
         ShowInLevel();
     }
 
-    private void OnRetryClicked()
+    private void OnRetryKeepClicked()
+    {
+        RetryLevel(keepWorkspace: true);
+    }
+
+    private void OnRetryClearClicked()
+    {
+        RetryLevel(keepWorkspace: false);
+    }
+
+    private void RetryLevel(bool keepWorkspace)
     {
         AudioManager.Instance?.Play(SoundId.UiClick);
-        levelManager.ReloadLevel();
+        levelManager.ReloadLevel(keepWorkspace);
         ShowInLevel();
     }
 

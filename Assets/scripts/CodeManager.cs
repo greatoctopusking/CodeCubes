@@ -294,6 +294,15 @@ public class CodeManager : MonoBehaviour
         }
     }
 
+    public void ClearAllHighlights()
+    {
+        foreach (var code in FindObjectsOfType<Code>())
+        {
+            if (code != null)
+                code.SetHighlight(false);
+        }
+    }
+
     private void ToggleCodeExecution()
     {
         bool inLevel = LevelManager.Instance != null && LevelManager.Instance.IsLevelActive;

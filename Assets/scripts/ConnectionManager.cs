@@ -373,20 +373,11 @@ public class ConnectionManager : MonoBehaviour
                 }
                 DeselectBlock();
             }
-            else if (hitBlock == selectedBlock)
-            {
-                Debug.Log($"[CM] Disconnect self '{selectedBlock.name}'");
-                bool hadLink = selectedBlock.next != null;
-                Disconnect(selectedBlock);
-                if (hadLink)
-                    AudioManager.Instance?.Play(SoundId.BlockDisconnect, selectedBlock.transform.position);
-                DeselectBlock();
-            }
             else
             {
-                Debug.Log($"[CM] Disconnect '{selectedBlock.name}' (no target)");
-                bool hadLink = selectedBlock.next != null;
-                Disconnect(selectedBlock);
+                string reason = hitBlock == selectedBlock ? "self" : "no target";
+                Debug.Log($"[CM] Disconnect '{selectedBlock.name}' ({reason})");
+                bool hadLink = TryDisconnectFromStart(selectedBlock);
                 if (hadLink)
                     AudioManager.Instance?.Play(SoundId.BlockDisconnect, selectedBlock.transform.position);
                 DeselectBlock();
@@ -446,6 +437,11 @@ public class ConnectionManager : MonoBehaviour
             CreatePreviewObjects();
         }
         previewContainer.SetActive(true);
+    }
+
+    public void CancelSelection()
+    {
+        DeselectBlock();
     }
 
     private void DeselectBlock()
@@ -533,6 +529,33 @@ public class ConnectionManager : MonoBehaviour
         }
 
         from.next = null;
+    }
+
+    private BoolCode GetJudger(Code block)
+    {
+        if (block is While whileBlock)
+            return whileBlock.Judger;
+        if (block is If ifBlock)
+            return ifBlock.Judger;
+        return null;
+    }
+
+    private bool TryDisconnectFromStart(Code block)
+    {
+        if (GetJudger(block) != null)
+        {
+            Debug.Log($"[CM] Disconnect Judger from start '{block.name}'");
+            DisconnectJudger(block);
+            return true;
+        }
+
+        if (block.next != null)
+        {
+            Disconnect(block);
+            return true;
+        }
+
+        return false;
     }
 
     private bool IsAnyonesJudger(BoolCode target)

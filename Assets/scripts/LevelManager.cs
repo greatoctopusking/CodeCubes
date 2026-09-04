@@ -78,7 +78,7 @@ public class LevelManager : MonoBehaviour
         }
     }
 
-    public void LoadLevelByIndex(int index)
+    public void LoadLevelByIndex(int index, bool keepWorkspace = false)
     {
         if (index < 0 || index >= levels.Count) return;
 
@@ -88,7 +88,11 @@ public class LevelManager : MonoBehaviour
         if (codeManager != null && codeManager.IsExecuting)
             codeManager.StopExecution();
 
-        CodeBlockBoard.Instance?.ClearWorkspace();
+        ConnectionManager.Instance?.CancelSelection();
+        codeManager?.ClearAllHighlights();
+
+        if (!keepWorkspace)
+            CodeBlockBoard.Instance?.ClearWorkspace();
         ClearLevel();
 
         currentLevelIndex = index;
@@ -101,7 +105,8 @@ public class LevelManager : MonoBehaviour
         GenerateGrid(size);
         SpawnStars(data, size);
         PlaceRobot(data, size);
-        CodeBlockBoard.Instance?.PlaceUniqueStartOnGround();
+        if (!keepWorkspace)
+            CodeBlockBoard.Instance?.PlaceUniqueStartOnGround();
         CodeBlockBoard.Instance?.ApplyAvailableBlocks(data.GetSuggestedBlockNames());
         levelActive = true;
         facingIndicator?.Show();
@@ -109,9 +114,9 @@ public class LevelManager : MonoBehaviour
         AudioManager.Instance?.Play(SoundId.LevelEnter);
     }
 
-    public void ReloadLevel()
+    public void ReloadLevel(bool keepWorkspace = false)
     {
-        LoadLevelByIndex(currentLevelIndex);
+        LoadLevelByIndex(currentLevelIndex, keepWorkspace);
     }
 
     public void StopLevel()
